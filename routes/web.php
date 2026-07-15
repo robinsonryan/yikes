@@ -7,6 +7,7 @@ use RobinsonRyan\Yikes\Http\Controllers\AssetsController;
 use RobinsonRyan\Yikes\Http\Controllers\ChecklistsController;
 use RobinsonRyan\Yikes\Http\Controllers\NotesController;
 use RobinsonRyan\Yikes\Http\Controllers\ScreenshotsController;
+use RobinsonRyan\Yikes\Http\Middleware\EnsureLocalIndexEnabled;
 use RobinsonRyan\Yikes\Http\Middleware\EnsureYikesEnabled;
 
 $uuid = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}';
@@ -24,25 +25,32 @@ Route::middleware([...(array) config('yikes.middleware', ['web']), EnsureYikesEn
     ->prefix((string) config('yikes.route_prefix', 'yikes'))
     ->name('yikes.')
     ->group(function () use ($uuid, $screenshotFile): void {
-        Route::get('/', [NotesController::class, 'index'])->name('index');
-
+        // FAB capture surface — available in BOTH modes (hub mode still
+        // captures locally first, then pushes).
         Route::post('/notes', [NotesController::class, 'store'])->name('notes.store');
-        Route::patch('/notes/{note}', [NotesController::class, 'update'])
-            ->where('note', $uuid)->name('notes.update');
-        Route::patch('/notes/{note}/status', [NotesController::class, 'updateStatus'])
-            ->where('note', $uuid)->name('notes.status');
-        Route::delete('/notes/completed', [NotesController::class, 'destroyCompleted'])
-            ->name('notes.clearCompleted');
-        Route::delete('/notes/{note}', [NotesController::class, 'destroy'])
-            ->where('note', $uuid)->name('notes.destroy');
 
         Route::post('/screenshots', [ScreenshotsController::class, 'storePending'])->name('screenshots.store');
         Route::get('/screenshots/pending/{id}', [ScreenshotsController::class, 'showPending'])
             ->where('id', $uuid)->name('screenshots.showPending');
         Route::delete('/screenshots/pending/{id}', [ScreenshotsController::class, 'destroyPending'])
             ->where('id', $uuid)->name('screenshots.destroyPending');
-        Route::get('/screenshots/{note}/{file}', [ScreenshotsController::class, 'show'])
-            ->where('note', $uuid)->where('file', $screenshotFile)->name('screenshots.show');
+
+        // Local index/triage UI — 404s in hub mode (the hub owns triage).
+        Route::middleware(EnsureLocalIndexEnabled::class)->group(function () use ($uuid, $screenshotFile): void {
+            Route::get('/', [NotesController::class, 'index'])->name('index');
+
+            Route::patch('/notes/{note}', [NotesController::class, 'update'])
+                ->where('note', $uuid)->name('notes.update');
+            Route::patch('/notes/{note}/status', [NotesController::class, 'updateStatus'])
+                ->where('note', $uuid)->name('notes.status');
+            Route::delete('/notes/completed', [NotesController::class, 'destroyCompleted'])
+                ->name('notes.clearCompleted');
+            Route::delete('/notes/{note}', [NotesController::class, 'destroy'])
+                ->where('note', $uuid)->name('notes.destroy');
+
+            Route::get('/screenshots/{note}/{file}', [ScreenshotsController::class, 'show'])
+                ->where('note', $uuid)->where('file', $screenshotFile)->name('screenshots.show');
+        });
     });
 
 // The UAT checklist surface is deliberately guest-reachable (testers read

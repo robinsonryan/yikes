@@ -10,10 +10,13 @@ use RobinsonRyan\Yikes\Enums\NoteType;
 use RobinsonRyan\Yikes\Http\Requests\StoreNoteRequest;
 use RobinsonRyan\Yikes\Http\Requests\UpdateNoteRequest;
 use RobinsonRyan\Yikes\Http\Requests\UpdateNoteStatusRequest;
+use RobinsonRyan\Yikes\Support\Hub;
 use RobinsonRyan\Yikes\Support\NoteRepository;
+use RobinsonRyan\Yikes\Support\PushQueue;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 final class NotesController
 {
@@ -78,6 +81,20 @@ final class NotesController
             pendingOwnerId: $this->ownerId($request),
             status: NoteStatus::tryFrom((string) ($data['status'] ?? '')) ?? NoteStatus::New,
         );
+
+        // Hub mode: the note is safely on disk — now try a synchronous push.
+        // Flushing (rather than pushing just this note) also retries bundles
+        // stranded by earlier hub downtime. Any trouble is swallowed: capture
+        // must NEVER fail because the hub is down or slow.
+        if (Hub::enabled()) {
+            try {
+                app(PushQueue::class)->flush();
+            } catch (\Throwable $e) {
+                Log::warning('yikes: push-on-capture failed; bundle stays queued.', [
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
 
         return response()->json(['message' => 'Yikes! Note saved.'], 201);
     }

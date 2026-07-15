@@ -4,14 +4,19 @@ declare(strict_types=1);
 
 namespace RobinsonRyan\Yikes;
 
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Foundation\Http\Kernel as HttpKernel;
 use Illuminate\Support\ServiceProvider;
+use RobinsonRyan\Yikes\Console\FlushCommand;
 use RobinsonRyan\Yikes\Http\Middleware\InjectYikesAssets;
 use RobinsonRyan\Yikes\Support\ChecklistRepository;
 use RobinsonRyan\Yikes\Support\ChecklistResultStore;
+use RobinsonRyan\Yikes\Support\Hub;
+use RobinsonRyan\Yikes\Support\HubClient;
 use RobinsonRyan\Yikes\Support\NoteRepository;
+use RobinsonRyan\Yikes\Support\PushQueue;
 
 class YikesServiceProvider extends ServiceProvider
 {
@@ -47,6 +52,20 @@ class YikesServiceProvider extends ServiceProvider
 
             return new ChecklistResultStore($path);
         });
+
+        // Hub-mode collaborators — bound (not singleton) like the repository
+        // so they always reflect the current hub config (tests flip it
+        // per-test; local mode simply never resolves them).
+        $this->app->bind(HubClient::class, fn (): HubClient => new HubClient(
+            Hub::url(),
+            Hub::token(),
+            Hub::timeout(),
+        ));
+
+        $this->app->bind(PushQueue::class, fn (Application $app): PushQueue => new PushQueue(
+            $app->make(NoteRepository::class),
+            $app->make(HubClient::class),
+        ));
     }
 
     /**
@@ -78,5 +97,19 @@ class YikesServiceProvider extends ServiceProvider
                 $kernel->pushMiddleware(InjectYikesAssets::class);
             }
         }
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([FlushCommand::class]);
+        }
+
+        // Hub-mode retry via the host's scheduler, when it runs one. The
+        // callback only fires if the app actually resolves the Schedule
+        // (i.e. `schedule:run`/`schedule:work` executes) — apps without a
+        // scheduler are untouched, and no queue worker is ever required.
+        $this->callAfterResolving(Schedule::class, function (Schedule $schedule): void {
+            if (Hub::enabled()) {
+                $schedule->command('yikes:flush')->everyTenMinutes();
+            }
+        });
     }
 }

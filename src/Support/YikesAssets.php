@@ -45,6 +45,14 @@ final class YikesAssets
      */
     public static function injectHtml(Request $request): string
     {
+        $maxScreenshotBytes = (int) config('yikes.max_screenshot_kb', 4096) * 1024;
+
+        if (Hub::enabled()) {
+            // The hub hard-413s any screenshot over its cap — never let the
+            // client store/push a file the hub would bounce.
+            $maxScreenshotBytes = min($maxScreenshotBytes, Hub::MAX_SCREENSHOT_BYTES);
+        }
+
         $config = [
             'base' => url((string) config('yikes.route_prefix', 'yikes')),
             'testingBase' => url((string) config('yikes.checklists.route_prefix', 'testing')),
@@ -52,6 +60,10 @@ final class YikesAssets
             'route' => Route::currentRouteName(),
             'darkSelector' => config('yikes.ui.dark_selector'),
             'name' => (string) config('app.name', 'Laravel'),
+            // Hub mode: the island hides the local index link and the
+            // fast-track toggle (triage lives on the hub).
+            'hub' => Hub::enabled(),
+            'maxScreenshotBytes' => $maxScreenshotBytes,
         ];
 
         $json = json_encode($config, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT);

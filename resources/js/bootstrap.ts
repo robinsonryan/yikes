@@ -14,11 +14,23 @@ export interface YikesBootstrap {
     /** Host dark-mode selector from config, e.g. ".app-dark"; null = auto-detect. */
     darkSelector: string | null;
     name: string;
+    /** True when the host pushes notes to a yikes hub (no local index/triage UI). */
+    hub: boolean;
+    /** Per-screenshot byte cap — captures above it are downscaled client-side. */
+    maxScreenshotBytes: number;
 }
+
+/**
+ * What the server actually injects. The hub fields are optional on the wire
+ * so pages cached from a pre-hub package version still boot; bootstrap()
+ * fills in their defaults.
+ */
+type YikesBootstrapWire = Omit<YikesBootstrap, "hub" | "maxScreenshotBytes"> &
+    Partial<Pick<YikesBootstrap, "hub" | "maxScreenshotBytes">>;
 
 declare global {
     interface Window {
-        __YIKES__?: YikesBootstrap;
+        __YIKES__?: YikesBootstrapWire;
         __YIKES_MOUNTED__?: boolean;
     }
 }
@@ -30,5 +42,5 @@ export function bootstrap(): YikesBootstrap {
         throw new Error("yikes: window.__YIKES__ is missing — the island was loaded without its bootstrap.");
     }
 
-    return config;
+    return { hub: false, maxScreenshotBytes: 4096 * 1024, ...config };
 }
