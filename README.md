@@ -109,6 +109,21 @@ different convention, set `yikes.ui.dark_selector` (e.g. `'.theme-dark'`).
 kernel. Turn it off if you'd rather place the snippet yourself —
 render `RobinsonRyan\Yikes\Support\YikesAssets::injectHtml($request)` before `</body>`.
 
+### Content-Security-Policy (nonce-based)
+
+If the host runs a nonce-based CSP, yikes stamps the per-request nonce on every inline
+`<script>`/`<style>` it emits (the auto-injected bootstrap, the module tag, and its own
+Blade shell) — no rewrite middleware needed.
+
+- **Zero config** when the app uses Laravel's Vite nonce: whatever `Vite::useCspNonce()`
+  set is picked up automatically at render time.
+- **Custom setups**: point `yikes.csp_nonce` at a resolver — a callable returning
+  `?string`, or an invokable class-string (safe under `config:cache`). A configured
+  resolver always wins over the Vite auto-detection; returning `null` from it means
+  "no nonce" (so `fn () => null` disables detection outright).
+- **No CSP**: leave it `null` — with no nonce resolved the output is byte-identical to
+  previous releases.
+
 ## Storage format
 
 Everything lives under `config('yikes.path')` (default `.yikes/` at the project root), and —

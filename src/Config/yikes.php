@@ -92,6 +92,27 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | CSP nonce
+    |--------------------------------------------------------------------------
+    |
+    | For hosts running a nonce-based Content-Security-Policy: the package
+    | stamps a per-request nonce on every inline <script>/<style> it emits
+    | (the auto-injected bootstrap AND its own Blade shell).
+    |
+    | null (default): auto-detect Laravel's Vite nonce — when the host app
+    | calls Vite::useCspNonce(), that nonce is reused with zero config.
+    | Otherwise set a resolver: a callable returning ?string, or an
+    | invokable class-string (config:cache safe). A configured resolver is
+    | authoritative — its null return means "no nonce" and skips the Vite
+    | auto-detection, so `fn () => null` hard-disables it.
+    |
+    | No nonce resolved = output byte-identical to a non-CSP install.
+    |
+    */
+    'csp_nonce' => null,
+
+    /*
+    |--------------------------------------------------------------------------
     | Capture limits
     |--------------------------------------------------------------------------
     |

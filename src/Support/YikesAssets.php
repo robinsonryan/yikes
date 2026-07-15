@@ -68,7 +68,12 @@ final class YikesAssets
 
         $json = json_encode($config, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT);
 
-        return "\n<script>" . self::MARKER . ' = ' . $json . ';</script>'
-            . "\n" . '<script type="module" src="' . self::assetUrl('yikes.js') . '"></script>' . "\n";
+        // Nonce-based CSP support: stamp the request nonce on both tags —
+        // the inline bootstrap needs it under `script-src 'nonce-…'`, and
+        // the module tag needs it under 'strict-dynamic'. No nonce = ''.
+        $nonce = CspNonce::attr();
+
+        return "\n<script{$nonce}>" . self::MARKER . ' = ' . $json . ';</script>'
+            . "\n" . '<script type="module"' . $nonce . ' src="' . self::assetUrl('yikes.js') . '"></script>' . "\n";
     }
 }
