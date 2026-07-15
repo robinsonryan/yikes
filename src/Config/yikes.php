@@ -30,6 +30,33 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Hub (push-on-capture)
+    |--------------------------------------------------------------------------
+    |
+    | With a hub URL set, yikes runs in HUB MODE: captured notes are written
+    | to the local .yikes/ store first (capture never blocks on the hub),
+    | then pushed to the hub over its ingest API. Unpushed bundles are
+    | retried on the next capture, via `php artisan yikes:flush`, and via
+    | the scheduler when the host app runs one. The local index/triage UI
+    | is disabled — the hub owns triage; the FAB capture surface remains.
+    |
+    | Empty URL (the default) = LOCAL MODE: exactly the flat-file behavior
+    | this package has always had, index UI included.
+    |
+    */
+    'hub' => [
+        'url' => env('YIKES_HUB_URL', ''),
+        'token' => env('YIKES_HUB_TOKEN', ''),
+        'project' => env('YIKES_PROJECT', ''),
+
+        // Connect/read timeout (seconds) for the synchronous push attempted
+        // during capture. Deliberately short: a slow hub must never make the
+        // capture UX feel broken — the bundle just stays queued.
+        'timeout' => 3,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Routing
     |--------------------------------------------------------------------------
     |

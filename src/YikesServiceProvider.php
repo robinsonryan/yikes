@@ -11,7 +11,10 @@ use Illuminate\Support\ServiceProvider;
 use RobinsonRyan\Yikes\Http\Middleware\InjectYikesAssets;
 use RobinsonRyan\Yikes\Support\ChecklistRepository;
 use RobinsonRyan\Yikes\Support\ChecklistResultStore;
+use RobinsonRyan\Yikes\Support\Hub;
+use RobinsonRyan\Yikes\Support\HubClient;
 use RobinsonRyan\Yikes\Support\NoteRepository;
+use RobinsonRyan\Yikes\Support\PushQueue;
 
 class YikesServiceProvider extends ServiceProvider
 {
@@ -47,6 +50,20 @@ class YikesServiceProvider extends ServiceProvider
 
             return new ChecklistResultStore($path);
         });
+
+        // Hub-mode collaborators — bound (not singleton) like the repository
+        // so they always reflect the current hub config (tests flip it
+        // per-test; local mode simply never resolves them).
+        $this->app->bind(HubClient::class, fn (): HubClient => new HubClient(
+            Hub::url(),
+            Hub::token(),
+            Hub::timeout(),
+        ));
+
+        $this->app->bind(PushQueue::class, fn (Application $app): PushQueue => new PushQueue(
+            $app->make(NoteRepository::class),
+            $app->make(HubClient::class),
+        ));
     }
 
     /**
