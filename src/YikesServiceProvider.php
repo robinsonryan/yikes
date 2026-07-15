@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace RobinsonRyan\Yikes;
 
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Foundation\Http\Kernel as HttpKernel;
 use Illuminate\Support\ServiceProvider;
+use RobinsonRyan\Yikes\Console\FlushCommand;
 use RobinsonRyan\Yikes\Http\Middleware\InjectYikesAssets;
 use RobinsonRyan\Yikes\Support\ChecklistRepository;
 use RobinsonRyan\Yikes\Support\ChecklistResultStore;
@@ -95,5 +97,19 @@ class YikesServiceProvider extends ServiceProvider
                 $kernel->pushMiddleware(InjectYikesAssets::class);
             }
         }
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([FlushCommand::class]);
+        }
+
+        // Hub-mode retry via the host's scheduler, when it runs one. The
+        // callback only fires if the app actually resolves the Schedule
+        // (i.e. `schedule:run`/`schedule:work` executes) — apps without a
+        // scheduler are untouched, and no queue worker is ever required.
+        $this->callAfterResolving(Schedule::class, function (Schedule $schedule): void {
+            if (Hub::enabled()) {
+                $schedule->command('yikes:flush')->everyTenMinutes();
+            }
+        });
     }
 }
