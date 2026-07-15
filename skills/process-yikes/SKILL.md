@@ -86,15 +86,17 @@ as the implementation, or in an immediate follow-up commit (e.g.
 
 The hub owns the queue and triage. You talk to its `/api/v1` agent API with a bearer token.
 
-**Token:** use `YIKES_HUB_TOKEN` from the DEV MACHINE'S `.env` — on a dev checkout this is
-an `agent`-ability token. (The deployed server's `.env` holds an `ingest` token instead;
-ingest tokens get `403` on every agent endpoint. If your token 403s on the list call, you
-have the server's ingest token — ask the user for the agent token.) `YIKES_PROJECT` is the
+**Token:** use `YIKES_HUB_AGENT_TOKEN` from the DEV MACHINE'S `.env` — an `agent`-ability
+token used only by this skill. (`YIKES_HUB_TOKEN` is the app's `ingest` token — local
+captures push with it — and ingest tokens get `403` on every agent endpoint. If
+`YIKES_HUB_AGENT_TOKEN` is absent, fall back to `YIKES_HUB_TOKEN`, but if that 403s on the
+list call it's the ingest token — ask the user for an agent token.) `YIKES_PROJECT` is the
 project's slug on the hub.
 
 ```bash
 HUB="$(grep -E '^YIKES_HUB_URL=' .env | cut -d= -f2-)"
-TOKEN="$(grep -E '^YIKES_HUB_TOKEN=' .env | cut -d= -f2-)"
+TOKEN="$(grep -E '^YIKES_HUB_AGENT_TOKEN=' .env | cut -d= -f2-)"
+[ -n "$TOKEN" ] || TOKEN="$(grep -E '^YIKES_HUB_TOKEN=' .env | cut -d= -f2-)"
 PROJECT="$(grep -E '^YIKES_PROJECT=' .env | cut -d= -f2-)"
 ```
 
