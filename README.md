@@ -48,6 +48,26 @@ from auth/consumer pages; the surface only exists where `YIKES_ENABLED` is on),
 `route_prefix` (default `yikes`), `capture_state`, `max_screenshot_kb`, `max_state_kb`, and
 `ui.auto_inject` / `ui.dark_selector` (see below).
 
+### Hub mode (push-on-capture)
+
+The package is dual-mode. With no hub configured (the default) everything above applies —
+flat-file store, local index UI. Point it at a yikes hub and captured notes are pushed to
+the hub's ingest API instead of being triaged locally:
+
+```dotenv
+YIKES_HUB_URL=https://yikes.example.com
+YIKES_HUB_TOKEN=<ingest token for this project>
+YIKES_PROJECT=<project slug on the hub>
+```
+
+In hub mode a capture still writes to the local `.yikes/` store first (capture never fails
+because the hub is down), then pushes synchronously with a ~3s timeout. Unpushed bundles are
+retried on the next capture, by `php artisan yikes:flush`, and every ten minutes via the
+scheduler if the host app runs one — no queue worker needed. Pushed-state lives in
+`push/<note-id>.pushed` / `.conflict` marker files beside the store. The local index/triage
+UI answers 404 (the hub owns triage); the FAB capture surface stays. See
+`docs/hub-contract.md` for the wire contract and `docs/SPEC-HUB.md` for the design.
+
 ## The element picker
 
 The crosshair button on the FAB starts pick mode: hovering highlights page elements, clicking
