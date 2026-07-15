@@ -5,13 +5,34 @@ description: Process the Yikes dev/QC note queue. Use when the user asks to "pro
 
 # Process Yikes Notes
 
-Yikes notes are dev/QC feedback captured in-app (bug, layout, idea, refactor) and committed to
-the repo as flat files. Each note carries the page context it was captured on (URL, route name,
-page/component name, document title, user/account, dark/light mode, viewport, optionally the
-specific element it is about), an optional app-state snapshot, and zero or more screenshots.
-Your job: report the queue, then implement the **approved** notes.
+Yikes notes are dev/QC feedback captured in-app (bug, layout, idea, refactor). Each note
+carries the page context it was captured on (URL, route name, page/component name, document
+title, user/account, dark/light mode, viewport, optionally the specific element it is about),
+an optional app-state snapshot, and zero or more screenshots. Your job: report the queue,
+then implement the **approved** notes.
 
-## Locating the notes
+## Step 0 — detect the mode
+
+The package runs in one of two modes; determine which BEFORE anything else by checking the
+host app's env/config for a hub URL:
+
+```bash
+grep -E '^YIKES_(HUB_URL|HUB_TOKEN|PROJECT)=' .env
+# or: php artisan tinker --execute="var_dump(config('yikes.hub.url'));"
+```
+
+- **`YIKES_HUB_URL` empty or absent → LOCAL MODE.** Notes are flat files committed to this
+  repo. Follow "Local mode" below.
+- **`YIKES_HUB_URL` set → HUB MODE.** The hub is the system of record; notes are fetched
+  over its agent API, implemented locally, and marked done on the hub. Follow "Hub mode"
+  below. The app-local `.yikes/` directory is only a capture queue / working copy and is
+  NOT committed.
+
+---
+
+## Local mode
+
+### Locating the notes
 
 The notes directory defaults to `.yikes/` at the project root. The path is configurable —
 check `config/yikes.php` (or the package config, `config('yikes.path')`) for a custom path
@@ -24,22 +45,136 @@ before assuming the default. Layout:
   screenshots/<note-id>/   # attached screenshots (PNG)
 ```
 
-## Procedure
+### Procedure
 
-### 1. Read the queue and report
+#### 1. Read the queue and report
 
 Read every file in `.yikes/notes/*.md`. Group by frontmatter `status` and report counts to the
 user, e.g. "6 notes: 2 approved, 3 new, 1 done." List each `new` note (id, type, title/first
 line) so the user can triage them — but do not work on them.
 
-### 2. Select work
+#### 2. Select work
 
 Work ONLY notes with `status: approved`, unless the user names a specific note — then work
 that one regardless of status (confirm first if it is `done` or `ignored`). Skip `on-hold`,
 `ignored`, and `done` entirely. If there are no approved notes, say so and stop after the
 report.
 
-### 3. Implement each approved note
+#### 3. Implement each approved note
+
+Follow the shared implementation steps (below).
+
+#### 4. Mark the note done
+
+After the implementing commit, edit the note's frontmatter:
+
+```yaml
+status: done
+resolution:
+  commit: <sha of the implementing commit>
+  note: <one-line summary of what was done>
+  completed_at: <ISO8601 timestamp>
+```
+
+Leave everything else in the file untouched. Include this frontmatter edit in the same commit
+as the implementation, or in an immediate follow-up commit (e.g.
+`chore(yikes): mark 20260711-142530-a1b2c3d4 done`).
+
+---
+
+## Hub mode
+
+The hub owns the queue and triage. You talk to its `/api/v1` agent API with a bearer token.
+
+**Token:** use `YIKES_HUB_TOKEN` from the DEV MACHINE'S `.env` — on a dev checkout this is
+an `agent`-ability token. (The deployed server's `.env` holds an `ingest` token instead;
+ingest tokens get `403` on every agent endpoint. If your token 403s on the list call, you
+have the server's ingest token — ask the user for the agent token.) `YIKES_PROJECT` is the
+project's slug on the hub.
+
+```bash
+HUB="$(grep -E '^YIKES_HUB_URL=' .env | cut -d= -f2-)"
+TOKEN="$(grep -E '^YIKES_HUB_TOKEN=' .env | cut -d= -f2-)"
+PROJECT="$(grep -E '^YIKES_PROJECT=' .env | cut -d= -f2-)"
+```
+
+#### 1. Fetch the approved queue and report
+
+```bash
+curl -sS -H "Authorization: Bearer $TOKEN" -H "Accept: application/json" \
+  "$HUB/api/v1/projects/$PROJECT/notes?status=approved"
+```
+
+Response: `{ "data": [ …note resources… ], "next_cursor": "…" }` — ordered oldest-first;
+follow `cursor=<next_cursor>` pages until `next_cursor` is `null`. Report the approved count
+(and note that `new`-note triage happens in the hub UI, not here). If there are no approved
+notes, say so and stop.
+
+#### 2. Materialize each note into a local working copy
+
+For each approved note, fetch the detail (the list omits `state`) and its screenshots:
+
+```bash
+curl -sS -H "Authorization: Bearer $TOKEN" -H "Accept: application/json" \
+  "$HUB/api/v1/notes/<id>"
+
+# one per entry in the detail's `screenshots` array (position, ascending):
+curl -sS -H "Authorization: Bearer $TOKEN" \
+  -o ".yikes/screenshots/<id>/001-$(date -u +%Y%m%d-%H%M%S).png" \
+  "$HUB/api/v1/notes/<id>/screenshots/1"
+```
+
+Write the working copy into `.yikes/` in the exact local-mode layout so the implementation
+steps are identical in both modes:
+
+- `.yikes/notes/<YYYYMMDD-HHMMSS>-<last-8-of-id>.md` (timestamp from `captured_at`):
+  YAML frontmatter `id, title, type, status, created_at` (= `captured_at`), `created_by`,
+  `context`, `state_file`, `screenshots` (the relative paths you saved), `resolution: null` —
+  then the note `body` below the frontmatter. Note: the hub's wire format uses `on_hold`;
+  the flat-file frontmatter convention is `on-hold` (irrelevant for `approved` notes, but
+  normalize if you ever materialize one).
+- `.yikes/state/<id>.json` — the detail's `state` value, if not null (then set
+  `state_file: state/<id>.json`).
+- `.yikes/screenshots/<id>/NNN-<YYYYMMDD-HHMMSS>.png` — position `NNN` zero-padded to 3.
+
+**Do NOT git-commit any of these working-copy files** — in hub mode `.yikes/` is not
+tracked; the hub is the record. Never `git add .yikes` in hub mode.
+
+#### 3. Implement each approved note
+
+Follow the shared implementation steps (below). The implementing commits contain only code —
+no note files.
+
+#### 4. Mark the note done on the hub
+
+After the implementing commit:
+
+```bash
+curl -sS -X PATCH \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Accept: application/json" -H "Content-Type: application/json" \
+  "$HUB/api/v1/notes/<id>" \
+  -d '{
+    "status": "done",
+    "resolution": {
+      "commit": "<sha of the implementing commit>",
+      "note": "<one-line summary of what was done>",
+      "completed_at": "<ISO8601 timestamp, e.g. 2026-07-15T15:33:39+00:00>"
+    }
+  }'
+```
+
+`commit`, `note`, and `completed_at` are all required and non-empty; `200` returns the
+updated note. A `422` means the note is no longer `approved` (someone re-triaged it) or the
+payload is malformed — report it to the user and move on; do not force it. This PATCH is the
+ONLY mutation the agent API allows.
+
+Optionally update the working copy's frontmatter to match (status + resolution) so a re-run
+sees it as done — but the hub's state is what counts.
+
+---
+
+## Shared implementation steps (both modes)
 
 For each approved note:
 
@@ -63,23 +198,7 @@ For each approved note:
 5. **Commit** with a Conventional Commits message that references the note id, e.g.
    `fix(billing): align statement totals on mobile (yikes: 20260711-142530-a1b2c3d4)`.
 
-### 4. Mark the note done
-
-After the implementing commit, edit the note's frontmatter:
-
-```yaml
-status: done
-resolution:
-  commit: <sha of the implementing commit>
-  note: <one-line summary of what was done>
-  completed_at: <ISO8601 timestamp>
-```
-
-Leave everything else in the file untouched. Include this frontmatter edit in the same commit
-as the implementation, or in an immediate follow-up commit (e.g.
-`chore(yikes): mark 20260711-142530-a1b2c3d4 done`).
-
-### 5. Batch notes that touch the same surface
+### Batch notes that touch the same surface
 
 Before starting implementation, scan the approved set for notes that touch the same page or
 component (same `context.page`, overlapping components). Implement those together as one
@@ -88,16 +207,21 @@ notes. Mark each covered note `done` with the shared commit sha and its own reso
 
 ## Hard rules
 
-- **Never delete a note file** — status changes only. Deletion is a human action via the
-  Yikes index UI.
+- **Never delete a note file** — status changes only. This applies to the hub-mode working
+  copy too: materialized notes, state files, and screenshots stay on disk untouched until a
+  human removes them. Deletion is a human action (index UI in local mode, hub UI in hub mode).
 - **Never delete, move, or modify screenshots or state files.** They are the permanent record
   of what was reported.
 - Only Claude sets `status: done`, and only with a real implementing commit sha in
   `resolution.commit`. Never flip a note to done without shipped work.
 - Do not change any status other than to `done` (triage — approved/on-hold/ignored — belongs
-  to the user in the index UI).
+  to the human: index UI in local mode, hub UI in hub mode). In hub mode the API enforces
+  this: `approved → done` is the only transition an agent token can make.
+- Hub mode: never git-commit `.yikes/` contents; the resolution lives in the hub, not in a
+  frontmatter edit.
 
 ## Wrap-up
 
 Report what was done: per note — id, what changed, commit sha — plus anything left in the
-queue (remaining `new` notes awaiting triage, `on-hold` count).
+queue (local mode: remaining `new` notes awaiting triage and `on-hold` count; hub mode: any
+notes that 422ed on the done PATCH or otherwise need human attention).
