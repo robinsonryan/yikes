@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from "vue";
 import { api, noteUrl } from "../api";
+import { bootstrap } from "../bootstrap";
 import { captureContext, captureState } from "../context";
 import { usePendingScreenshots } from "../composables/usePendingScreenshots";
 import { useYikesForm } from "../composables/useYikesForm";
@@ -45,8 +46,13 @@ const capturedState = ref<string | null>(null);
 const showContext = ref(false);
 const deletingId = ref<string | null>(null);
 
-/** Fast-track: save the note pre-approved, skipping the triage step. */
+/**
+ * Fast-track: save the note pre-approved, skipping the triage step.
+ * Hidden in hub mode — the hub owns triage, and its ingest API creates
+ * every note as `new`.
+ */
 const approveNow = ref(false);
+const { hub: hubMode } = bootstrap();
 
 // Context is captured at dialog-open time so it reflects the page the user
 // was looking at, not the moment they hit Save.
@@ -270,6 +276,7 @@ function submit(): void {
             <div class="flex flex-wrap items-center justify-between gap-2 pt-2">
                 <!-- Fast-track toggle: skip triage, save straight to approved. -->
                 <button
+                    v-if="!hubMode"
                     type="button"
                     :aria-pressed="approveNow"
                     class="flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors"
@@ -283,7 +290,9 @@ function submit(): void {
                     <YIcon name="bolt" class="transition-transform" :class="approveNow ? 'scale-110 -rotate-12' : ''" />
                     {{ approveNow ? "Fast-tracked" : "Fast-track" }}
                 </button>
-                <div class="flex gap-2">
+                <!-- ml-auto keeps the actions right-aligned when the
+                     fast-track toggle is hidden (hub mode). -->
+                <div class="ml-auto flex gap-2">
                     <YButton variant="secondary" label="Cancel" @click="close" />
                     <YButton
                         type="submit"

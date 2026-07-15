@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { inject, nextTick, ref } from "vue";
 import { api, noteUrl } from "../api";
+import { bootstrap } from "../bootstrap";
 import { pickElement } from "../composables/useElementPicker";
+import { fitUnderCap } from "../utils/downscale";
 import { useDraggableFab } from "../composables/useDraggableFab";
 import { usePendingScreenshots } from "../composables/usePendingScreenshots";
 import type { YikesElementContext } from "../types";
@@ -19,6 +21,10 @@ const overlayHost = inject<HTMLElement>("yikes:container")!;
 const { add: toast } = useYikesToast();
 const { pendingIds, add } = usePendingScreenshots();
 
+// Hub mode: the local index UI is disabled (triage lives on the hub), so
+// the FAB drops its index link.
+const { hub: hubMode, maxScreenshotBytes } = bootstrap();
+
 const showDialog = ref(false);
 const isCapturing = ref(false);
 const isPicking = ref(false);
@@ -31,8 +37,12 @@ const fabEl = ref<HTMLElement | null>(null);
 const { style: fabStyle, onHandlePointerDown } = useDraggableFab(fabEl);
 
 async function uploadScreenshot(blob: Blob): Promise<void> {
+    // Full-page PNGs can blow past the upload cap (the hub hard-rejects
+    // over 5 MB) — downscale in the browser, the only layer with a canvas.
+    const capped = await fitUnderCap(blob, maxScreenshotBytes);
+
     const formData = new FormData();
-    formData.append("screenshot", blob, "screenshot.png");
+    formData.append("screenshot", capped, "screenshot.png");
 
     const response = await api.postForm<{ id: string }>(noteUrl("/screenshots"), formData);
     add(response.id);
@@ -129,6 +139,7 @@ function openNoteDialog(): void {
                 <YIcon name="grip" />
             </button>
             <a
+                v-if="!hubMode"
                 :href="noteUrl()"
                 class="flex size-9 items-center justify-center rounded-full text-surface-500 hover:bg-surface-100 dark:text-surface-400 dark:hover:bg-surface-700/60"
                 aria-label="Open the yikes notes index"
