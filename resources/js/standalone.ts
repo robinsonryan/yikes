@@ -33,11 +33,34 @@ const PAGES: Record<string, Component> = {
 };
 
 let sharedSheet: CSSStyleSheet | null = null;
+let propertiesLifted = false;
 
-function ensureStyles(): CSSStyleSheet {
-    if (sharedSheet) {
-        return sharedSheet;
+/**
+ * Constructable stylesheets adopted onto a shadow root are the primary style
+ * path, but they aren't universal — older iOS Safari (< 16.4) and various
+ * in-app WebViews (exactly the mobile surface) don't support them, and
+ * `new CSSStyleSheet()` throws outright there. Without a fallback the island
+ * mounts completely unstyled: every utility (`fixed`, `flex`, `size-9`) is a
+ * no-op, so the FAB collapses into full-width blocks at the bottom of the
+ * page. Feature-detect and drop to an inline <style> when unsupported.
+ */
+function supportsAdoptedStyleSheets(): boolean {
+    return (
+        "adoptedStyleSheets" in Document.prototype &&
+        typeof CSSStyleSheet !== "undefined" &&
+        "replaceSync" in CSSStyleSheet.prototype
+    );
+}
+
+/**
+ * `@property` rules don't register inside shadow DOM, so lift them into a
+ * single document-level <style> (global, selector-free, harmless to the host).
+ */
+function liftPropertyRules(): void {
+    if (propertiesLifted) {
+        return;
     }
+    propertiesLifted = true;
 
     const propertyBlocks = stylesheet.match(/@property[^{}]+\{[^{}]*\}/g) ?? [];
 
@@ -47,11 +70,26 @@ function ensureStyles(): CSSStyleSheet {
         style.textContent = propertyBlocks.join("\n");
         document.head.append(style);
     }
+}
 
-    sharedSheet = new CSSStyleSheet();
-    sharedSheet.replaceSync(stylesheet);
+/** Attach the package stylesheet to a freshly created shadow root. */
+function applyStyles(shadow: ShadowRoot): void {
+    liftPropertyRules();
 
-    return sharedSheet;
+    if (supportsAdoptedStyleSheets()) {
+        if (!sharedSheet) {
+            sharedSheet = new CSSStyleSheet();
+            sharedSheet.replaceSync(stylesheet);
+        }
+        shadow.adoptedStyleSheets = [...shadow.adoptedStyleSheets, sharedSheet];
+        return;
+    }
+
+    // Fallback: inline the full stylesheet into the shadow root so the island
+    // is never left unstyled on browsers without constructable stylesheets.
+    const style = document.createElement("style");
+    style.textContent = stylesheet;
+    shadow.append(style);
 }
 
 /** Keep the island's `.y-dark` container class in sync with the host theme. */
@@ -77,7 +115,7 @@ interface MountedIsland {
 
 function createIsland(host: HTMLElement): MountedIsland {
     const shadow = host.attachShadow({ mode: "open" });
-    shadow.adoptedStyleSheets = [ensureStyles()];
+    applyStyles(shadow);
 
     const container = document.createElement("div");
     container.className = "yikes-root font-sans";
