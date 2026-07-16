@@ -100,12 +100,29 @@ TOKEN="$(grep -E '^YIKES_HUB_AGENT_TOKEN=' .env | cut -d= -f2-)"
 PROJECT="$(grep -E '^YIKES_PROJECT=' .env | cut -d= -f2-)"
 ```
 
+**Fail closed on the project slug.** `$PROJECT` is the *only* thing scoping the queue to
+this codebase. If it is empty, STOP — do not fetch, do not build a `/projects//notes` URL,
+do not fall back to "all projects." An unset `YIKES_PROJECT` is a misconfiguration, not a
+"pull everything" signal:
+
+```bash
+[ -n "$PROJECT" ] || { echo "YIKES_PROJECT is unset — refusing to pull. Set it in .env."; exit 1; }
+```
+
+Treat `$PROJECT` as this run's identity: every note you fetch, materialize, or implement
+must belong to it. The hub enforces this at the API (a token gets `403` on any slug that is
+not its own project), and the checks below re-enforce it locally so a stale or misplaced
+working copy can never smuggle another project's notes into this codebase.
+
 #### 1. Fetch the approved queue and report
 
 ```bash
 curl -sS -H "Authorization: Bearer $TOKEN" -H "Accept: application/json" \
   "$HUB/api/v1/projects/$PROJECT/notes?status=approved"
 ```
+
+If this returns `403`, the token's project does not match `$PROJECT` (wrong token, or wrong
+slug) — report it and stop. Do NOT try other slugs.
 
 Response: `{ "data": [ …note resources… ], "next_cursor": "…" }` — ordered oldest-first;
 follow `cursor=<next_cursor>` pages until `next_cursor` is `null`. Report the approved count
@@ -130,11 +147,14 @@ Write the working copy into `.yikes/` in the exact local-mode layout so the impl
 steps are identical in both modes:
 
 - `.yikes/notes/<YYYYMMDD-HHMMSS>-<last-8-of-id>.md` (timestamp from `captured_at`):
-  YAML frontmatter `id, title, type, status, created_at` (= `captured_at`), `created_by`,
-  `context`, `state_file`, `screenshots` (the relative paths you saved), `resolution: null` —
-  then the note `body` below the frontmatter. Note: the hub's wire format uses `on_hold`;
-  the flat-file frontmatter convention is `on-hold` (irrelevant for `approved` notes, but
-  normalize if you ever materialize one).
+  YAML frontmatter `id, project, title, type, status, created_at` (= `captured_at`),
+  `created_by`, `context`, `state_file`, `screenshots` (the relative paths you saved),
+  `resolution: null` — then the note `body` below the frontmatter. **`project` is required
+  and must be the `project` slug from the API response** (`note.project`) — it is the
+  ownership stamp the implement step checks. Never omit it and never hand-edit it to a
+  different slug. Note: the hub's wire format uses `on_hold`; the flat-file frontmatter
+  convention is `on-hold` (irrelevant for `approved` notes, but normalize if you ever
+  materialize one).
 - `.yikes/state/<id>.json` — the detail's `state` value, if not null (then set
   `state_file: state/<id>.json`).
 - `.yikes/screenshots/<id>/NNN-<YYYYMMDD-HHMMSS>.png` — position `NNN` zero-padded to 3.
@@ -180,6 +200,15 @@ sees it as done — but the hub's state is what counts.
 
 For each approved note:
 
+0. **Verify the note belongs to THIS project — before anything else.** In hub mode, check the
+   frontmatter `project` against `$YIKES_PROJECT` (the slug you pulled with). If it does not
+   match — or the `project` field is missing — this note is not yours: **do not read it, do
+   not implement it, do not mark it done.** Skip it and add it to a "refused (wrong project)"
+   list you surface to the user at wrap-up. This is the guard against a stale, copied, or
+   mis-scoped `.yikes/` working copy leaking another project's notes into this codebase; a
+   note landing in the folder is never sufficient license to work it. (Local mode has a
+   single project — the repo itself — so there is nothing to cross-check; notes there carry
+   no `project` field and this step is a no-op.)
 1. **Absorb the full context.** Read the note body (the user's actual request) and the
    frontmatter `context` block. Read `.yikes/state/<note-id>.json` if the note's `state_file`
    is set — it shows the client-side state at capture time. **View every screenshot** listed in
@@ -226,4 +255,7 @@ notes. Mark each covered note `done` with the shared commit sha and its own reso
 
 Report what was done: per note — id, what changed, commit sha — plus anything left in the
 queue (local mode: remaining `new` notes awaiting triage and `on-hold` count; hub mode: any
-notes that 422ed on the done PATCH or otherwise need human attention).
+notes that 422ed on the done PATCH or otherwise need human attention). If any notes were
+**refused for wrong project** (step 0), list them explicitly with their `project` slug — a
+foreign note in the working copy means a bad pull or a stale/shared `.yikes/`, and the user
+needs to know to clean it up.
