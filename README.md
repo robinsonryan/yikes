@@ -68,6 +68,22 @@ scheduler if the host app runs one — no queue worker needed. Pushed-state live
 UI answers 404 (the hub owns triage); the FAB capture surface stays. See
 `docs/hub-contract.md` for the wire contract and `docs/SPEC-HUB.md` for the design.
 
+### Agent capture (`yikes:note`)
+
+Coding agents file notes from the CLI — same store, same push path, same triage — for
+issues they hit that are out of scope for the task at hand:
+
+```bash
+php artisan yikes:note "The org index N+1s on wards; out of scope for the queue rework." \
+  --title="Org index N+1" --type=refactor \
+  --context=file=app/Http/Controllers/OrgController.php:42 --context=branch=develop
+```
+
+Types are the island's four (`bug`, `layout`, `idea`, `refactor`). Every CLI note is
+stamped `source: agent` in its context and attributed to `Claude Code` (override with
+`--by=`), so agent-filed notes are filterable in triage. The command refuses to run while
+yikes is disabled, and a hub problem never fails it — the bundle just stays queued.
+
 ## The element picker
 
 The crosshair button on the FAB starts pick mode: hovering highlights page elements, clicking

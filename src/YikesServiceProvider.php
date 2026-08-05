@@ -10,6 +10,7 @@ use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Foundation\Http\Kernel as HttpKernel;
 use Illuminate\Support\ServiceProvider;
 use RobinsonRyan\Yikes\Console\FlushCommand;
+use RobinsonRyan\Yikes\Console\NoteCommand;
 use RobinsonRyan\Yikes\Http\Middleware\InjectYikesAssets;
 use RobinsonRyan\Yikes\Support\ChecklistRepository;
 use RobinsonRyan\Yikes\Support\ChecklistResultStore;
@@ -99,7 +100,7 @@ class YikesServiceProvider extends ServiceProvider
         }
 
         if ($this->app->runningInConsole()) {
-            $this->commands([FlushCommand::class]);
+            $this->commands([FlushCommand::class, NoteCommand::class]);
         }
 
         // Hub-mode retry via the host's scheduler, when it runs one. The
