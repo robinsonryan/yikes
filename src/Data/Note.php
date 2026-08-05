@@ -21,7 +21,7 @@ final readonly class Note
 {
     /**
      * @param  array{name: string, email: string}  $createdBy
-     * @param  array<string, mixed>  $context  loosely-validated page context (url, route, page, account, department, dark_mode, viewport, user_agent)
+     * @param  array<string, mixed>  $context  free-shape page context, stored verbatim; known keys are url, route, page, account, department, dark_mode, viewport, user_agent, title, element — host context providers may add any others
      * @param  list<string>  $screenshots  relative paths under the yikes root (e.g. "screenshots/<id>/001-....png")
      * @param  array{commit: string|null, note: string|null, completed_at: string|null}|null  $resolution  written by the process-yikes skill when status flips to done
      */

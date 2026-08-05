@@ -6,6 +6,7 @@ namespace RobinsonRyan\Yikes\Http\Requests;
 
 use RobinsonRyan\Yikes\Enums\NoteStatus;
 use RobinsonRyan\Yikes\Enums\NoteType;
+use RobinsonRyan\Yikes\Http\Rules\BoundedContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -14,6 +15,12 @@ use Illuminate\Validation\Rule;
  * it is captured client-side and stored as-is in the note frontmatter; only
  * shape and size are checked, never app-specific structure (the package
  * stays policy-neutral about what an "account" or "department" looks like).
+ *
+ * NEVER add `context.<key>` sub-rules here: Laravel's
+ * `excludeUnvalidatedArrayKeys` then strips every key not explicitly listed,
+ * silently discarding whatever a host app's context providers contribute.
+ * `context` is validated as one bounded free-shape attribute (BoundedContext),
+ * exactly like `state` — bounded, then stored verbatim.
  */
 final class StoreNoteRequest extends FormRequest
 {
@@ -37,22 +44,7 @@ final class StoreNoteRequest extends FormRequest
             // along — done/ignored are triage outcomes, not capture inputs.
             'status' => ['nullable', Rule::in([NoteStatus::New->value, NoteStatus::Approved->value])],
 
-            'context' => ['nullable', 'array'],
-            'context.url' => ['nullable', 'string', 'max:2048'],
-            'context.route' => ['nullable', 'string', 'max:255'],
-            'context.page' => ['nullable', 'string', 'max:255'],
-            'context.account' => ['nullable', 'array'],
-            'context.department' => ['nullable', 'array'],
-            'context.dark_mode' => ['nullable', 'boolean'],
-            'context.viewport' => ['nullable', 'array'],
-            'context.viewport.width' => ['nullable', 'integer'],
-            'context.viewport.height' => ['nullable', 'integer'],
-            'context.user_agent' => ['nullable', 'string', 'max:1024'],
-            'context.title' => ['nullable', 'string', 'max:255'],
-            'context.element' => ['nullable', 'array'],
-            'context.element.selector' => ['nullable', 'string', 'max:1024'],
-            'context.element.tag' => ['nullable', 'string', 'max:64'],
-            'context.element.text' => ['nullable', 'string', 'max:1000'],
+            'context' => ['nullable', 'array', new BoundedContext],
 
             'state' => ['nullable', 'string', 'max:' . $maxStateBytes],
 

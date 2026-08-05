@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\Route;
+use RobinsonRyan\Yikes\Http\Rules\BoundedContext;
 use RobinsonRyan\Yikes\Support\NoteRepository;
 use RobinsonRyan\Yikes\Support\YikesAssets;
 use RobinsonRyan\Yikes\Tests\TestCase;
@@ -76,6 +77,144 @@ describe('storing notes', function (): void {
         $this->postJson('/yikes/notes', ['body' => ''])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['body']);
+    });
+
+    it('stores host-provided context keys the package has never heard of, verbatim', function (): void {
+        $this->postJson('/yikes/notes', [
+            'body' => 'Wrong org in the header',
+            'context' => [
+                'url' => 'https://example.test/callings',
+                'surface' => 'vueadmin',
+                'organization' => ['id' => 'org_42', 'name' => 'Sunset Ward'],
+                'tenant_slug' => 'sunset',
+                'seats' => 12,
+                'beta' => true,
+                'trial_ends' => null,
+            ],
+        ])->assertCreated();
+
+        $note = app(NoteRepository::class)->all()->first();
+
+        expect($note->context)->toBe([
+            'url' => 'https://example.test/callings',
+            'surface' => 'vueadmin',
+            'organization' => ['id' => 'org_42', 'name' => 'Sunset Ward'],
+            'tenant_slug' => 'sunset',
+            'seats' => 12,
+            'beta' => true,
+            'trial_ends' => null,
+        ]);
+
+        // …and verbatim in the frontmatter on disk, not just in the parsed DTO.
+        $file = (string) file_get_contents((string) collect(glob(app(NoteRepository::class)->path('notes/*.md')))->first());
+        expect($file)->toContain('surface: vueadmin')
+            ->and($file)->toContain('tenant_slug: sunset');
+    });
+
+    it('stores unknown context keys holding flat arrays of scalars', function (): void {
+        $this->postJson('/yikes/notes', [
+            'body' => 'Abilities look wrong',
+            'context' => [
+                'abilities' => ['callings.view', 'callings.assign', 'members.view'],
+                'flags' => [true, false],
+            ],
+        ])->assertCreated();
+
+        $note = app(NoteRepository::class)->all()->first();
+
+        expect($note->context['abilities'])->toBe(['callings.view', 'callings.assign', 'members.view'])
+            ->and($note->context['flags'])->toBe([true, false]);
+    });
+
+    it('keeps the known nbss-style account/department keys working', function (): void {
+        $this->postJson('/yikes/notes', [
+            'body' => 'Pricing tab misaligned',
+            'context' => [
+                'account' => ['id' => '9', 'name' => 'Acme'],
+                'department' => ['id' => '3', 'name' => 'Parts'],
+                'dark_mode' => true,
+                'viewport' => ['width' => 1440, 'height' => 900],
+            ],
+        ])->assertCreated();
+
+        $note = app(NoteRepository::class)->all()->first();
+
+        expect($note->context['account'])->toBe(['id' => '9', 'name' => 'Acme'])
+            ->and($note->context['department'])->toBe(['id' => '3', 'name' => 'Parts'])
+            ->and($note->context['dark_mode'])->toBeTrue()
+            ->and($note->context['viewport'])->toBe(['width' => 1440, 'height' => 900]);
+    });
+
+    it('rejects a context with more keys than the cap', function (): void {
+        $context = [];
+
+        foreach (range(1, BoundedContext::MAX_KEYS + 1) as $index) {
+            $context['key_' . $index] = 'value';
+        }
+
+        $this->postJson('/yikes/notes', ['body' => 'Too much context', 'context' => $context])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['context']);
+    });
+
+    it('rejects context values nested deeper than one flat array level', function (): void {
+        $this->postJson('/yikes/notes', [
+            'body' => 'Deeply nested context',
+            'context' => ['organization' => ['unit' => ['id' => 7]]],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['context']);
+    });
+
+    it('rejects a context that is a bare list instead of named keys', function (): void {
+        $this->postJson('/yikes/notes', ['body' => 'List context', 'context' => ['a', 'b']])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['context']);
+    });
+
+    it('rejects context keys longer than the key-length cap', function (): void {
+        $this->postJson('/yikes/notes', [
+            'body' => 'Absurd key',
+            'context' => [str_repeat('k', BoundedContext::MAX_KEY_LENGTH + 1) => 'value'],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['context']);
+    });
+
+    it('rejects context string values longer than the value cap', function (): void {
+        $this->postJson('/yikes/notes', [
+            'body' => 'Absurd value',
+            'context' => ['blob' => str_repeat('x', BoundedContext::MAX_STRING_LENGTH + 1)],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['context']);
+    });
+
+    it('still rejects a malformed viewport on the known keys', function (): void {
+        $this->postJson('/yikes/notes', [
+            'body' => 'Bad viewport',
+            'context' => ['viewport' => ['width' => 'wide', 'height' => 900]],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['context']);
+    });
+
+    it('still rejects a malformed element on the known keys', function (): void {
+        $this->postJson('/yikes/notes', [
+            'body' => 'Bad element',
+            'context' => ['element' => ['selector' => str_repeat('a', 1025), 'tag' => 'h1']],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['context']);
+    });
+
+    it('still rejects a non-boolean dark_mode on the known keys', function (): void {
+        $this->postJson('/yikes/notes', [
+            'body' => 'Bad dark mode',
+            'context' => ['dark_mode' => 'sometimes'],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['context']);
     });
 });
 

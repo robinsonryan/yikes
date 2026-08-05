@@ -95,7 +95,11 @@ The island is fully self-contained — but a host app can enrich what gets captu
 ```
 
 Anything a context provider returns is merged over the auto-captured core context (URL, route
-name, title, dark mode, viewport, user agent) and stored in the note's frontmatter.
+name, title, dark mode, viewport, user agent) and stored in the note's frontmatter **verbatim** —
+the package never drops keys it does not recognise. The only limits are shape bounds: at most
+40 keys, key names ≤ 64 characters, and each value either a scalar/null or a flat array of
+scalars (≤ 40 entries, strings ≤ 2048 characters). Deeper nesting is rejected with a 422 on
+`context`, so keep provider payloads flat (`{ id, name }` is fine; `{ unit: { id } }` is not).
 
 ### Dark mode
 
