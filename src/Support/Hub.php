@@ -18,6 +18,10 @@ final class Hub
 
     public static function enabled(): bool
     {
+        if (app()->runningUnitTests() && ! config('yikes.hub.allow_in_tests', false)) {
+            return false;
+        }
+
         return self::url() !== '';
     }
 

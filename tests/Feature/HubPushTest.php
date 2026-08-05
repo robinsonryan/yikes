@@ -8,6 +8,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 use RobinsonRyan\Yikes\Data\Note;
 use RobinsonRyan\Yikes\Enums\NoteType;
+use RobinsonRyan\Yikes\Support\Hub;
 use RobinsonRyan\Yikes\Support\NoteRepository;
 use RobinsonRyan\Yikes\Support\PushQueue;
 use RobinsonRyan\Yikes\Tests\TestCase;
@@ -40,6 +41,32 @@ beforeEach(function (): void {
     config()->set('yikes.hub.url', 'https://hub.test');
     config()->set('yikes.hub.token', 'ingest-token');
     config()->set('yikes.hub.project', 'example-app');
+    config()->set('yikes.hub.allow_in_tests', true);
+});
+
+describe('test-suite safety', function (): void {
+    /*
+     * A hub URL that leaks into a host's test run (a worktree checkout
+     * missing .env.testing, a phpunit.xml without YIKES overrides) must not
+     * turn hub mode on: one leaked token turns every capture-route test into
+     * a real ingest against a production hub. Hub mode in tests is opt-in.
+     */
+    it('ignores a leaked hub URL unless the test opts in', function (): void {
+        config()->set('yikes.hub.allow_in_tests', false);
+
+        expect(Hub::enabled())->toBeFalse();
+
+        Http::fake();
+
+        $this->postJson('/yikes/notes', ['body' => 'Filed with a leaked hub token.'])
+            ->assertCreated();
+
+        Http::assertNothingSent();
+    });
+
+    it('honors the opt-in used by the tests in this file', function (): void {
+        expect(Hub::enabled())->toBeTrue();
+    });
 });
 
 describe('push on capture', function (): void {

@@ -53,6 +53,13 @@ return [
         // during capture. Deliberately short: a slow hub must never make the
         // capture UX feel broken — the bundle just stays queued.
         'timeout' => 3,
+
+        // Hub mode is force-disabled while the host app runs its test suite,
+        // so a hub URL leaking in from .env (worktree checkouts without a
+        // .env.testing, missed phpunit.xml overrides) can never spray test
+        // captures at a real hub. Tests that exercise hub mode on purpose
+        // must opt in by setting this to true alongside a faked Http client.
+        'allow_in_tests' => false,
     ],
 
     /*
