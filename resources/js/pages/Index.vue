@@ -5,6 +5,7 @@ import { useYikesForm } from "../composables/useYikesForm";
 import type { YikesNote, YikesNoteStatus } from "../types";
 import YikesCreateDialog from "../components/YikesCreateDialog.vue";
 import YButton from "../ui/YButton.vue";
+import YCopyId from "../ui/YCopyId.vue";
 import YCheckbox from "../ui/YCheckbox.vue";
 import YDialog from "../ui/YDialog.vue";
 import YIcon from "../ui/YIcon.vue";
@@ -263,6 +264,7 @@ function contextLine(note: YikesNote): string {
                         <span class="text-xs text-surface-500 dark:text-surface-400">
                             {{ formatDate(note.created_at) }} · {{ note.created_by.name }}
                         </span>
+                        <YCopyId :id="note.id" />
                         <div class="ml-auto flex items-center gap-2">
                             <YSelect
                                 :model-value="note.status"

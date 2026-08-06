@@ -178,7 +178,9 @@ skill when it flips status to `done`.
     `route('yikes.notes.store')`, `preserveScroll`, success toast (`useToast` from `@/composables/useToast`).
   - `pages/Index.vue` — wraps `@/layouts/AppLayout.vue`; pattern-match
     `resources/js/pages/account/departments/Index.vue`. Card list of notes (newest first):
-    type tag, status Select (immediate PATCH), title/body preview, context line (page · route ·
+    type tag, status Select (immediate PATCH), note id tail with a copy button (copies the
+    full UUID — so a human can name the note for directed processing), title/body preview,
+    context line (page · route ·
     account · dark/light · viewport), screenshot thumbnails (open full via `yikes.screenshots.show`),
     link to the captured URL, edit dialog (title/body), delete with confirm dialog. Status filter
     (SelectButton or Select).

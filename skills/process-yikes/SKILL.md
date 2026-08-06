@@ -1,6 +1,6 @@
 ---
 name: process-yikes
-description: Process the Yikes dev/QC note queue. Use when the user asks to "process the yikes notes", "work the yikes queue", "handle the yikes backlog", "run the yikes", "implement the approved yikes notes", or otherwise wants the in-app Yikes feedback notes triaged and the approved ones implemented.
+description: Process the Yikes dev/QC note queue. Use when the user asks to "process the yikes notes", "work the yikes queue", "handle the yikes backlog", "run the yikes", "implement the approved yikes notes", or otherwise wants the in-app Yikes feedback notes triaged and the approved ones implemented. Also takes a single note as an argument (UUID, id fragment, or title words — "process yikes 2f713c8f", "work on the header-contrast yikes"): a named note is auto-approved and processed on its own.
 ---
 
 # Process Yikes Notes
@@ -9,7 +9,43 @@ Yikes notes are dev/QC feedback captured in-app (bug, layout, idea, refactor). E
 carries the page context it was captured on (URL, route name, page/component name, document
 title, user/account, dark/light mode, viewport, optionally the specific element it is about),
 an optional app-state snapshot, and zero or more screenshots. Your job: report the queue,
-then implement the **approved** notes.
+then implement the **approved** notes — or, when the user names a single note, exactly
+that note (see "Directed processing" below).
+
+## Directed processing — the user named a note
+
+If the invocation carries an argument (or the user otherwise names a note — an id copied
+from the UI's copy button, an id fragment, or words from its title), you are processing
+THAT ONE NOTE, not the queue. The user naming it **is** the triage, so a note that is
+`new`, `on_hold`, or `ignored` is auto-approved first; do not ask for confirmation.
+
+1. **Detect the mode** (Step 0 below) as usual.
+2. **Resolve the specifier to exactly one note.**
+   - Hub mode: full UUID → `GET $HUB/api/v1/notes/<id>` directly. Anything shorter —
+     an id fragment or title words →
+     `GET $HUB/api/v1/projects/$PROJECT/notes?status=any&q=<urlencoded specifier>`
+     (follow cursor pages). The project-scoping rules from "Hub mode" apply unchanged —
+     `$PROJECT` must be set, and a note resolved via detail GET must belong to it.
+   - Local mode: match the specifier against note file names, frontmatter `id`, and
+     titles/first lines in `.yikes/notes/*.md` (case-insensitive substring).
+   - **Zero matches** → report it and stop. **More than one match** → list the candidates
+     (id tail, title, status) and ask which one; never guess.
+3. **Auto-approve if needed.**
+   - Already `approved` → proceed.
+   - `done` → STOP and tell the user: it has a recorded resolution, and re-opening is
+     human-only (hub UI / local index UI). Do not re-implement shipped work unasked.
+   - Otherwise, hub mode: `PATCH $HUB/api/v1/notes/<id>` with `{"status": "approved"}`
+     (no `resolution` — the API rejects one). This directed-approval form is valid from
+     `new`, `on_hold`, and `ignored`, and idempotent from `approved`; a `422` means the
+     note is `done` — see above. Local mode: edit the note's frontmatter `status:` to
+     `approved` (this edit rides the implementing commit).
+4. **Process it** exactly like an approved queue note: materialize (hub mode), shared
+   implementation steps, then record the outcome (`done` with the implementing commit, or
+   `on_hold`/report if blocked). Every rule from the queue flow applies — only the
+   selection and the approval differ.
+
+Skip the queue report in this mode (mention other approved notes exist, but work only the
+named one).
 
 ## Step 0 — detect the mode
 
@@ -55,10 +91,10 @@ line) so the user can triage them — but do not work on them.
 
 #### 2. Select work
 
-Work ONLY notes with `status: approved`, unless the user names a specific note — then work
-that one regardless of status (confirm first if it is `done` or `ignored`). Skip `on-hold`,
-`ignored`, and `done` entirely. If there are no approved notes, say so and stop after the
-report.
+Work ONLY notes with `status: approved`, unless the user names a specific note — that is
+directed processing (see the section above): auto-approve it and work it alone. Skip
+`on-hold`, `ignored`, and `done` entirely in queue mode. If there are no approved notes,
+say so and stop after the report.
 
 #### 3. Implement each approved note
 
@@ -220,8 +256,9 @@ supply it or confirm we drop the row" is what earns its place.
 `200` returns the updated note. A `422` on either form means the note is no longer
 `approved` (someone re-triaged it while you worked) or the payload is malformed — report it
 to the user and move on; do not force it. This PATCH is the ONLY endpoint the agent API
-lets you mutate through, and `approved → done` / `approved → on_hold` are the only two
-transitions it permits.
+lets you mutate through, and it permits exactly three forms: the two outcome transitions
+`approved → done` / `approved → on_hold`, plus `{"status": "approved"}` — directed
+approval, used ONLY in directed processing (the user named the note; see above).
 
 Optionally update the working copy's frontmatter to match (status + resolution) so a re-run
 sees the outcome — but the hub's state is what counts.
@@ -289,10 +326,11 @@ notes. Mark each covered note `done` with the shared commit sha and its own reso
     stay `approved` — leave it there and report it in the wrap-up for the human to
     re-triage. That is the recorded outcome in local mode; the hub-mode rule above does not
     apply.
-- Do not change any status other than to `done` or `on_hold` (triage — approving, putting
-  back in play, ignoring — belongs to the human: index UI in local mode, hub UI in hub
-  mode). In hub mode the API enforces this: `approved → done` and `approved → on_hold` are
-  the only transitions an agent token can make, and deleting a note is human-only.
+- Do not change any status other than to `done` or `on_hold` — with ONE exception: the
+  directed-processing auto-approval of a note the user explicitly named (the naming is the
+  triage). Queue-mode triage — approving, putting back in play, ignoring — stays human
+  (index UI in local mode, hub UI in hub mode). Never approve a note the user did not
+  name, and never re-open a `done` note; deleting a note is human-only everywhere.
 - Hub mode: never git-commit `.yikes/` contents; the resolution lives in the hub, not in a
   frontmatter edit.
 

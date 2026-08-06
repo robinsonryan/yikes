@@ -19,4 +19,5 @@ export const ICON_PATHS: Record<string, string> = {
     "arrow-left": "M19 12H5m6-7-7 7 7 7",
     "x": "M6 6l12 12M18 6 6 18",
     "crosshair": "M12 2v4m0 12v4M2 12h4m12 0h4M12 19a7 7 0 1 0 0-14 7 7 0 0 0 0 14Z",
+    "copy": "M8 8V5a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-3M5 8h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z",
 };

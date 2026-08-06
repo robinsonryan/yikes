@@ -105,8 +105,10 @@ screenshots ascending by position).
 
 ### GET /api/v1/projects/{slug}/notes
 
-Query params: `status` (default `approved`), `cursor`, `per_page` (default 25, max 100).
-`403` if `{slug}` is not the token's project.
+Query params: `status` (default `approved`; also accepts `any` for no status filter),
+`q` (≤ 200 chars — narrows to notes whose id or title contains the fragment,
+case-insensitively; used by directed processing to resolve a note a human named),
+`cursor`, `per_page` (default 25, max 100). `403` if `{slug}` is not the token's project.
 
 ```json
 {
@@ -149,10 +151,24 @@ Raw PNG, `Content-Type: image/png`. `404` for unknown position.
 ### PATCH /api/v1/notes/{id}
 
 The **only** endpoint agents may mutate through. It records the agent's *processing
-outcome* for an approved note, and it allows exactly two transitions: `approved → done`
-and `approved → on_hold`. Every note an agent pulls should leave the approved queue via
-one of them — a note it cannot finish is recorded as blocked, not left to be re-pulled
-on the next run.
+outcome* for an approved note, and it allows exactly two outcome transitions:
+`approved → done` and `approved → on_hold`. Every note an agent pulls should leave the
+approved queue via one of them — a note it cannot finish is recorded as blocked, not
+left to be re-pulled on the next run.
+
+There is additionally one entry transition, **directed approval** — used only when a
+human explicitly names a note for processing (`/process-yikes <id-or-name>`); the human
+naming it *is* the triage:
+
+```json
+{ "status": "approved" }
+```
+
+- Valid from `new`, `ignored`, and `on_hold` (a legacy blocked `resolution` is cleared,
+  matching human re-triage); idempotent from `approved`; `422` from `done` — done stays
+  terminal for agents, re-opening is human-only in the hub UI.
+- `resolution` is **prohibited** on this form (nothing has been processed yet).
+- `200` → the updated note resource.
 
 **Shipped — `approved → done`:**
 
@@ -184,13 +200,14 @@ on the next run.
 - `resolution.commit` is **required, non-empty** on `"done"` and **prohibited** on
   `"on_hold"` — nothing shipped, so there is no sha to record.
 - `422` if the note's current status is not `approved`, or if `status` is anything but
-  `"done"` or `"on_hold"`.
+  `"done"`, `"on_hold"`, or `"approved"` (directed approval above).
 - `200` → the updated note resource. The stored `resolution` is surfaced on the note's
   page in the hub UI, so an `on_hold` reason is what a human sees when they pick the
   note back up.
 
-Everything else — approve/ignore triage and deletion — stays human-only in the hub UI.
-A human re-triaging a note away from `done` or `on_hold` clears its resolution.
+Everything else — ignore triage, un-doing a done note, and deletion — stays human-only
+in the hub UI. A human re-triaging a note away from `done` or `on_hold` clears its
+resolution.
 
 ---
 
