@@ -11,10 +11,12 @@ the hub copy is authoritative once both exist.
   one ability: `ingest` or `agent`. Wrong ability → `403`.
 - All ids are UUIDv7 strings (lowercase, hyphenated).
 - Timestamps are ISO 8601 with offset (e.g. `2026-07-15T14:16:05+00:00`).
-- Enum values: `type` ∈ `bug | layout | idea | refactor`; `status` ∈
-  `new | approved | on_hold | ignored | done`.
+- Enum values: `status` ∈ `new | approved | on_hold | ignored | done`.
   (Wire format uses `on_hold`; the flat-file frontmatter historically used `on-hold` —
   clients normalize to underscore form when pushing.)
+- `type` is the slug of a note type registered in the hub. The set is
+  user-extensible (managed in the hub UI); a fresh hub seeds
+  `bug | layout | idea | refactor`. Ingesting an unregistered type → `422`.
 
 ## Error envelope
 
@@ -58,15 +60,19 @@ Request body:
 |---|---|---|---|
 | `id` | uuid7 | ✔ | Client-generated at capture. Idempotency key. |
 | `title` | string\|null | — | ≤ 200 chars. |
-| `type` | enum | ✔ | |
+| `type` | string | ✔ | Slug of a registered note type (see Conventions). |
 | `body` | string | ✔ | Markdown. May be empty string, not null. |
 | `created_by` | object | ✔ | `{name: string, email: string}` — both may be empty strings. |
 | `captured_at` | timestamp | ✔ | Client clock. Server stamps `received_at` itself. |
 | `context` | object | ✔ | Stored verbatim as JSONB. Free-shape; known keys: `url`, `route`, `page`, `account`, `department`, `dark_mode`, `viewport{width,height}`, `user_agent`, `title`, `element{selector,tag,text}`. |
 | `state` | object\|null | — | App-state snapshot, stored verbatim. |
 | `screenshot_count` | int ≥ 0 | ✔ | How many screenshot uploads will follow. Lets consumers detect incomplete bundles. |
+| `status` | enum | — | `new` (default) or `approved` — the capture dialog's fast-track. No other value is accepted; `422` otherwise. |
 
-Notes are created with `status: new`. `status` and `resolution` are NOT accepted on ingest.
+Notes are created with the sent `status` (`new` when absent). `resolution` is NOT
+accepted on ingest. `status` is **excluded from the idempotency hash**: a replay never
+changes a stored note's status (first write wins), and the receipt reports the note's
+*current* status — which may have moved on since ingest.
 
 Responses:
 
@@ -142,7 +148,13 @@ Raw PNG, `Content-Type: image/png`. `404` for unknown position.
 
 ### PATCH /api/v1/notes/{id}
 
-The **only** mutation agents may perform: `approved → done`.
+The **only** endpoint agents may mutate through. It records the agent's *processing
+outcome* for an approved note, and it allows exactly two transitions: `approved → done`
+and `approved → on_hold`. Every note an agent pulls should leave the approved queue via
+one of them — a note it cannot finish is recorded as blocked, not left to be re-pulled
+on the next run.
+
+**Shipped — `approved → done`:**
 
 ```json
 {
@@ -155,10 +167,30 @@ The **only** mutation agents may perform: `approved → done`.
 }
 ```
 
-- `resolution.commit` and `resolution.note` required, non-empty. `completed_at` required.
+**Blocked / needs a human — `approved → on_hold`:**
+
+```json
+{
+  "status": "on_hold",
+  "resolution": {
+    "note": "Blocked: the 2026 gear-ratio source table is missing — needs product input",
+    "completed_at": "2026-07-15T15:33:39+00:00"
+  }
+}
+```
+
+- `resolution.note` and `resolution.completed_at` are required on both forms; `note`
+  non-empty, `completed_at` a parseable timestamp.
+- `resolution.commit` is **required, non-empty** on `"done"` and **prohibited** on
+  `"on_hold"` — nothing shipped, so there is no sha to record.
 - `422` if the note's current status is not `approved`, or if `status` is anything but
-  `"done"`.
-- `200` → the updated note resource.
+  `"done"` or `"on_hold"`.
+- `200` → the updated note resource. The stored `resolution` is surfaced on the note's
+  page in the hub UI, so an `on_hold` reason is what a human sees when they pick the
+  note back up.
+
+Everything else — approve/ignore triage and deletion — stays human-only in the hub UI.
+A human re-triaging a note away from `done` or `on_hold` clears its resolution.
 
 ---
 

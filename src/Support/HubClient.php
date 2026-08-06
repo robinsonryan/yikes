@@ -30,16 +30,17 @@ final class HubClient
     /**
      * POST /api/v1/notes — the note bundle (everything but screenshot bytes).
      *
-     * Notes are created `new` on the hub; the contract forbids sending
-     * `status` or `resolution` on ingest, so neither field appears here
-     * (the flat file's `on-hold` vs wire `on_hold` normalization is thereby
-     * moot for ingest — status simply never goes on the wire).
+     * `status` carries the dialog's fast-track: notes are born `new` or
+     * `approved`, nothing further (only those two ever reach the push queue,
+     * so the flat file's `on-hold` vs wire `on_hold` normalization stays
+     * moot for ingest). `resolution` is still forbidden on ingest.
      */
     public function pushNote(Note $note, mixed $state): PushOutcome
     {
         try {
             $response = $this->request()->post('/api/v1/notes', [
                 'id' => $note->id,
+                'status' => $note->status->value,
                 'title' => $note->title,
                 'type' => $note->type->value,
                 'body' => $note->body,

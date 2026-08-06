@@ -5,7 +5,6 @@ import { useYikesForm } from "../composables/useYikesForm";
 import type { YikesNoteType } from "../types";
 import YButton from "../ui/YButton.vue";
 import YDialog from "../ui/YDialog.vue";
-import YIcon from "../ui/YIcon.vue";
 import YInput from "../ui/YInput.vue";
 import YMessage from "../ui/YMessage.vue";
 import YSelect from "../ui/YSelect.vue";
@@ -44,14 +43,17 @@ const form = useYikesForm<{
     contextPage: "",
 });
 
-/** Fast-track: save the note pre-approved, skipping the triage step. */
-const approveNow = ref(false);
+/**
+ * Fast-track: the footer's third action — save the note born approved,
+ * skipping triage. Tracks which submit is in flight for the spinner.
+ */
+const fastTracking = ref(false);
 
 watch(visible, (open) => {
     if (open) {
         form.reset();
         form.clearErrors();
-        approveNow.value = false;
+        fastTracking.value = false;
     }
 });
 
@@ -59,7 +61,9 @@ function close(): void {
     visible.value = false;
 }
 
-function submit(): void {
+function submit(fastTrack = false): void {
+    if (form.processing) return;
+    fastTracking.value = fastTrack;
     void form
         .transform((data) => ({
             title: data.title.trim() || null,
@@ -77,7 +81,7 @@ function submit(): void {
             },
             state: null,
             screenshots: [],
-            status: approveNow.value ? "approved" : "new",
+            status: fastTrack ? "approved" : "new",
         }))
         .submit("post", noteUrl("/notes"), {
             onSuccess: () => {
@@ -88,7 +92,7 @@ function submit(): void {
                 toast({
                     severity: "success",
                     summary: "Yikes noted",
-                    detail: approveNow.value
+                    detail: fastTrack
                         ? "Saved pre-approved — it's already in Claude's queue."
                         : "Your note was saved.",
                 });
@@ -99,7 +103,7 @@ function submit(): void {
 
 <template>
     <YDialog v-model:visible="visible" header="New yikes note">
-        <form class="space-y-4" @submit.prevent="submit">
+        <form class="space-y-4" @submit.prevent="submit()">
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-[10rem_1fr]">
                 <div class="space-y-1">
                     <label for="yikes-create-type" class="block text-sm font-medium text-surface-700 dark:text-surface-300">
@@ -157,31 +161,24 @@ function submit(): void {
                 </div>
             </fieldset>
 
-            <div class="flex flex-wrap items-center justify-between gap-2 pt-2">
-                <!-- Fast-track toggle: skip triage, save straight to approved. -->
-                <button
-                    type="button"
-                    :aria-pressed="approveNow"
-                    class="flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors"
-                    :class="
-                        approveNow
-                            ? 'border-primary-300 bg-primary-50 text-primary-700 dark:border-primary-700 dark:bg-primary-950 dark:text-primary-300'
-                            : 'border-surface-200 text-surface-500 hover:bg-surface-50 dark:border-surface-700 dark:text-surface-400 dark:hover:bg-surface-700/40'
-                    "
-                    @click="approveNow = !approveNow"
-                >
-                    <YIcon name="bolt" class="transition-transform" :class="approveNow ? 'scale-110 -rotate-12' : ''" />
-                    {{ approveNow ? "Fast-tracked" : "Fast-track" }}
-                </button>
-                <div class="flex gap-2">
-                    <YButton variant="secondary" label="Cancel" @click="close" />
-                    <YButton
-                        type="submit"
-                        :label="approveNow ? 'Save & approve' : 'Save note'"
-                        :icon="approveNow ? 'bolt' : undefined"
-                        :loading="form.processing"
-                    />
-                </div>
+            <!-- Cancel / Save note / Fast track — fast track saves the note
+                 born approved, straight into Claude's queue. -->
+            <div class="flex justify-end gap-2 pt-2">
+                <YButton variant="secondary" label="Cancel" :disabled="form.processing" @click="close" />
+                <YButton
+                    type="submit"
+                    label="Save note"
+                    :loading="form.processing && !fastTracking"
+                    :disabled="form.processing && fastTracking"
+                />
+                <YButton
+                    text
+                    label="Fast track"
+                    icon="bolt"
+                    :loading="form.processing && fastTracking"
+                    :disabled="form.processing && !fastTracking"
+                    @click="submit(true)"
+                />
             </div>
         </form>
     </YDialog>

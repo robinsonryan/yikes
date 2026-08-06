@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from "vue";
 import { api, noteUrl } from "../api";
-import { bootstrap } from "../bootstrap";
 import { captureContext, captureState } from "../context";
 import { usePendingScreenshots } from "../composables/usePendingScreenshots";
 import { useYikesForm } from "../composables/useYikesForm";
@@ -47,12 +46,11 @@ const showContext = ref(false);
 const deletingId = ref<string | null>(null);
 
 /**
- * Fast-track: save the note pre-approved, skipping the triage step.
- * Hidden in hub mode — the hub owns triage, and its ingest API creates
- * every note as `new`.
+ * Fast-track: the footer's third action — save the note born approved,
+ * skipping triage locally and (since contract v1 fast-track) on the hub.
+ * Tracks which submit is in flight so the spinner lands on the right button.
  */
-const approveNow = ref(false);
-const { hub: hubMode } = bootstrap();
+const fastTracking = ref(false);
 
 // Context is captured at dialog-open time so it reflects the page the user
 // was looking at, not the moment they hit Save.
@@ -61,7 +59,7 @@ watch(visible, (open) => {
         capturedContext.value = { ...captureContext(), element: props.element ?? null };
         capturedState.value = captureState();
         showContext.value = false;
-        approveNow.value = false;
+        fastTracking.value = false;
         for (const id of pendingIds.value) {
             if (!(id in included)) {
                 included[id] = true;
@@ -121,7 +119,9 @@ async function deletePending(id: string): Promise<void> {
     }
 }
 
-function submit(): void {
+function submit(fastTrack = false): void {
+    if (form.processing) return;
+    fastTracking.value = fastTrack;
     const attached = includedIds.value;
 
     void form
@@ -131,7 +131,7 @@ function submit(): void {
             context: capturedContext.value ?? captureContext(),
             state: capturedState.value,
             screenshots: attached,
-            status: approveNow.value ? "approved" : "new",
+            status: fastTrack ? "approved" : "new",
         }))
         .submit("post", noteUrl("/notes"), {
             onSuccess: () => {
@@ -145,7 +145,7 @@ function submit(): void {
                 toast({
                     severity: "success",
                     summary: "Yikes noted",
-                    detail: approveNow.value
+                    detail: fastTrack
                         ? "Saved pre-approved — it's already in Claude's queue."
                         : "Your note and its page context were saved.",
                 });
@@ -156,7 +156,7 @@ function submit(): void {
 
 <template>
     <YDialog v-model:visible="visible" header="Yikes — capture a note">
-        <form class="space-y-4" @submit.prevent="submit">
+        <form class="space-y-4" @submit.prevent="submit()">
             <!-- Picked element chip -->
             <div
                 v-if="capturedContext?.element"
@@ -273,34 +273,24 @@ function submit(): void {
                 </dl>
             </div>
 
-            <div class="flex flex-wrap items-center justify-between gap-2 pt-2">
-                <!-- Fast-track toggle: skip triage, save straight to approved. -->
-                <button
-                    v-if="!hubMode"
-                    type="button"
-                    :aria-pressed="approveNow"
-                    class="flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors"
-                    :class="
-                        approveNow
-                            ? 'border-primary-300 bg-primary-50 text-primary-700 dark:border-primary-700 dark:bg-primary-950 dark:text-primary-300'
-                            : 'border-surface-200 text-surface-500 hover:bg-surface-50 dark:border-surface-700 dark:text-surface-400 dark:hover:bg-surface-700/40'
-                    "
-                    @click="approveNow = !approveNow"
-                >
-                    <YIcon name="bolt" class="transition-transform" :class="approveNow ? 'scale-110 -rotate-12' : ''" />
-                    {{ approveNow ? "Fast-tracked" : "Fast-track" }}
-                </button>
-                <!-- ml-auto keeps the actions right-aligned when the
-                     fast-track toggle is hidden (hub mode). -->
-                <div class="ml-auto flex gap-2">
-                    <YButton variant="secondary" label="Cancel" @click="close" />
-                    <YButton
-                        type="submit"
-                        :label="approveNow ? 'Save & approve' : 'Save note'"
-                        :icon="approveNow ? 'bolt' : undefined"
-                        :loading="form.processing"
-                    />
-                </div>
+            <!-- Cancel / Save note / Fast track — fast track saves the note
+                 born approved, straight into Claude's queue. -->
+            <div class="flex justify-end gap-2 pt-2">
+                <YButton variant="secondary" label="Cancel" :disabled="form.processing" @click="close" />
+                <YButton
+                    type="submit"
+                    label="Save note"
+                    :loading="form.processing && !fastTracking"
+                    :disabled="form.processing && fastTracking"
+                />
+                <YButton
+                    text
+                    label="Fast track"
+                    icon="bolt"
+                    :loading="form.processing && fastTracking"
+                    :disabled="form.processing && !fastTracking"
+                    @click="submit(true)"
+                />
             </div>
         </form>
     </YDialog>

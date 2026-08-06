@@ -60,8 +60,8 @@ final class YikesAssets
             'route' => Route::currentRouteName(),
             'darkSelector' => config('yikes.ui.dark_selector'),
             'name' => (string) config('app.name', 'Laravel'),
-            // Hub mode: the island hides the local index link and the
-            // fast-track toggle (triage lives on the hub).
+            // Hub mode: the island hides the local index link (triage
+            // lives on the hub; fast-track works in both modes).
             'hub' => Hub::enabled(),
             'maxScreenshotBytes' => $maxScreenshotBytes,
         ];

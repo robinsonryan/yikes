@@ -196,7 +196,8 @@ new ──► approved ──► done   (set by Claude, with the implementing co
   └──► ignored              (won't do; kept for the record)
 ```
 
-- Every note starts as `new` (or `approved` via the dialog's Fast-track toggle).
+- Every note starts as `new` (or `approved` via the dialog's Fast track action — works in
+  local and hub mode alike; the hub ingest API accepts a note born `approved`).
 - A human triages in the Yikes index page (`/yikes`): **approved** is the signal that Claude
   should implement it; `on-hold` and `ignored` are skipped.
 - **`done` is set only by Claude** (via the skill), together with a `resolution` block linking

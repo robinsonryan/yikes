@@ -110,8 +110,8 @@ describe('push on capture', function (): void {
                 && $data['created_by'] === ['name' => 'Unknown', 'email' => '']
                 && $data['state'] === ['cart' => ['items' => 2]]
                 && $data['screenshot_count'] === 1
-                // The contract forbids status/resolution on ingest.
-                && ! array_key_exists('status', $data)
+                // Ingest accepts new|approved; resolution is still forbidden.
+                && $data['status'] === 'new'
                 && ! array_key_exists('resolution', $data);
         });
 
@@ -129,6 +129,19 @@ describe('push on capture', function (): void {
 
         expect(app(PushQueue::class)->isPushed($note->id))->toBeTrue()
             ->and(app(PushQueue::class)->queued())->toBeEmpty();
+    });
+
+    it('pushes a fast-tracked note with status approved', function (): void {
+        Http::fake(['hub.test/api/v1/notes' => Http::response(['status' => 'approved'], 201)]);
+
+        $this->postJson('/yikes/notes', [
+            'body' => 'Ship it straight to the queue',
+            'type' => 'bug',
+            'status' => 'approved',
+        ])->assertCreated();
+
+        Http::assertSent(fn (Request $request): bool => $request->url() === 'https://hub.test/api/v1/notes'
+            && $request->data()['status'] === 'approved');
     });
 
     it('still captures when the hub is down and leaves the bundle queued', function (): void {

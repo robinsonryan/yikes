@@ -125,7 +125,7 @@ skill when it flips status to `done`.
     `ScreenshotsController` (storePending, destroyPending, show — streams image from outside public/,
     with strict path sanitization: ids validated as uuid/filename via regex, no traversal).
   - `Http/Requests/` — FormRequests for store (body required, title/type optional-with-defaults,
-    optional initial status limited to `new|approved` — the dialog's fast-track toggle, context
+    optional initial status limited to `new|approved` — the dialog's Fast track action, context
     array validated loosely, state string size-capped), content update (title/body only), and
     status update (enum rule).
 - Routes (named, under prefix + middleware from config):
@@ -173,8 +173,8 @@ skill when it flips status to `done`.
   - `YikesDialog.vue` — uses the globally-registered `Dialog` (`sm:max-w-lg` default is fine):
     type select (default `bug`), optional title input, required textarea, pending-screenshots
     thumbnail strip with per-image include checkboxes (default checked) + delete, a collapsed
-    "context that will be saved" summary, a fast-track toggle (save straight to `approved`),
-    Save/Cancel. Submits via Inertia `useForm` to
+    "context that will be saved" summary, and a three-action footer: Cancel / Save note /
+    Fast track (save the note born `approved`). Submits via Inertia `useForm` to
     `route('yikes.notes.store')`, `preserveScroll`, success toast (`useToast` from `@/composables/useToast`).
   - `pages/Index.vue` — wraps `@/layouts/AppLayout.vue`; pattern-match
     `resources/js/pages/account/departments/Index.vue`. Card list of notes (newest first):
