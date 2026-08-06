@@ -167,9 +167,13 @@ tracked; the hub is the record. Never `git add .yikes` in hub mode.
 Follow the shared implementation steps (below). The implementing commits contain only code —
 no note files.
 
-#### 4. Mark the note done on the hub
+#### 4. Record the outcome on the hub — for EVERY note you pulled
 
-After the implementing commit:
+Every note you pulled in this run must end the run with an outcome recorded. There are
+exactly two, and no third option: **shipped** (`done`) or **blocked** (`on_hold`). Leaving
+a pulled note sitting in `approved` is a bug — it makes the next run pull it again, forever.
+
+**Shipped** — after the implementing commit:
 
 ```bash
 curl -sS -X PATCH \
@@ -186,13 +190,41 @@ curl -sS -X PATCH \
   }'
 ```
 
-`commit`, `note`, and `completed_at` are all required and non-empty; `200` returns the
-updated note. A `422` means the note is no longer `approved` (someone re-triaged it) or the
-payload is malformed — report it to the user and move on; do not force it. This PATCH is the
-ONLY mutation the agent API allows.
+`commit`, `note`, and `completed_at` are all required and non-empty. `commit` must be a
+real sha you actually created — never mark a note done without shipped work.
+
+**Blocked** — you could not finish it: it needs a product/design decision, it is out of
+scope for this codebase, it depends on something that does not exist yet, the note is too
+ambiguous to act on, or your fix would break something the note does not account for:
+
+```bash
+curl -sS -X PATCH \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Accept: application/json" -H "Content-Type: application/json" \
+  "$HUB/api/v1/notes/<id>" \
+  -d '{
+    "status": "on_hold",
+    "resolution": {
+      "note": "<concrete reason, and what a human needs to decide or supply>",
+      "completed_at": "<ISO8601 timestamp>"
+    }
+  }'
+```
+
+`note` and `completed_at` are required; **`commit` is prohibited** on `on_hold` (nothing
+shipped, so there is no sha — sending one is a `422`). Write the reason for the human who
+picks the note up next: it is displayed on the note's page in the hub UI. "Blocked" alone
+is useless; "Blocked: the 2026 gear-ratio source table doesn't exist yet — needs product to
+supply it or confirm we drop the row" is what earns its place.
+
+`200` returns the updated note. A `422` on either form means the note is no longer
+`approved` (someone re-triaged it while you worked) or the payload is malformed — report it
+to the user and move on; do not force it. This PATCH is the ONLY endpoint the agent API
+lets you mutate through, and `approved → done` / `approved → on_hold` are the only two
+transitions it permits.
 
 Optionally update the working copy's frontmatter to match (status + resolution) so a re-run
-sees it as done — but the hub's state is what counts.
+sees the outcome — but the hub's state is what counts.
 
 ---
 
@@ -245,17 +277,29 @@ notes. Mark each covered note `done` with the shared commit sha and its own reso
   of what was reported.
 - Only Claude sets `status: done`, and only with a real implementing commit sha in
   `resolution.commit`. Never flip a note to done without shipped work.
-- Do not change any status other than to `done` (triage — approved/on-hold/ignored — belongs
-  to the human: index UI in local mode, hub UI in hub mode). In hub mode the API enforces
-  this: `approved → done` is the only transition an agent token can make.
+- **Every note you pull must end the run with an outcome recorded** — `done` with a real
+  commit, or (hub mode) `on_hold` with a concrete reason. Never end a run with a note you
+  pulled still sitting in `approved`, and never silently skip a note you decided not to
+  work: that decision IS the outcome, so record it as `on_hold` and say why. The only
+  exception is a note refused for wrong project (shared step 0) — do not touch its status
+  at all; it isn't yours.
+- Do not change any status other than to `done` or `on_hold` (triage — approving, putting
+  back in play, ignoring — belongs to the human: index UI in local mode, hub UI in hub
+  mode). In hub mode the API enforces this: `approved → done` and `approved → on_hold` are
+  the only transitions an agent token can make, and deleting a note is human-only.
+- Local mode has no `on_hold` outcome path: leave a blocked note `approved` and report it
+  in the wrap-up so the human can re-triage it in the index UI.
 - Hub mode: never git-commit `.yikes/` contents; the resolution lives in the hub, not in a
   frontmatter edit.
 
 ## Wrap-up
 
-Report what was done: per note — id, what changed, commit sha — plus anything left in the
-queue (local mode: remaining `new` notes awaiting triage and `on-hold` count; hub mode: any
-notes that 422ed on the done PATCH or otherwise need human attention). If any notes were
+Report what was done: per note — id, what changed, commit sha — plus every note you put
+`on_hold` with its reason, so the human sees exactly what needs their decision. Then
+anything left in the queue (local mode: remaining `new` notes awaiting triage and `on-hold`
+count; hub mode: any notes that 422ed on the outcome PATCH or otherwise need human
+attention). Before you report, reconcile: every note you pulled in step 1 must appear in
+exactly one bucket — shipped, on hold, 422ed, or refused for wrong project. If any notes were
 **refused for wrong project** (step 0), list them explicitly with their `project` slug — a
 foreign note in the working copy means a bad pull or a stale/shared `.yikes/`, and the user
 needs to know to clean it up.
