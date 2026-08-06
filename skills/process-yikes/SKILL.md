@@ -278,17 +278,21 @@ notes. Mark each covered note `done` with the shared commit sha and its own reso
 - Only Claude sets `status: done`, and only with a real implementing commit sha in
   `resolution.commit`. Never flip a note to done without shipped work.
 - **Every note you pull must end the run with an outcome recorded** — `done` with a real
-  commit, or (hub mode) `on_hold` with a concrete reason. Never end a run with a note you
-  pulled still sitting in `approved`, and never silently skip a note you decided not to
-  work: that decision IS the outcome, so record it as `on_hold` and say why. The only
-  exception is a note refused for wrong project (shared step 0) — do not touch its status
-  at all; it isn't yours.
+  commit, or (hub mode) `on_hold` with a concrete reason. Never silently skip a note you
+  decided not to work: that decision IS the outcome, so record it and say why.
+  - **Hub mode:** never end a run with a note you pulled still sitting in `approved`. A
+    blocked note gets `on_hold` with a concrete reason. Two exceptions, both narrow: a note
+    refused for wrong project (shared step 0) — do not touch its status at all, it isn't
+    yours; and an outcome PATCH you could not land (see Wrap-up) — the note stays
+    `approved` because the hub never heard you, and you must say so in the report.
+  - **Local mode:** there is no `on_hold` outcome path, so a blocked note is *supposed* to
+    stay `approved` — leave it there and report it in the wrap-up for the human to
+    re-triage. That is the recorded outcome in local mode; the hub-mode rule above does not
+    apply.
 - Do not change any status other than to `done` or `on_hold` (triage — approving, putting
   back in play, ignoring — belongs to the human: index UI in local mode, hub UI in hub
   mode). In hub mode the API enforces this: `approved → done` and `approved → on_hold` are
   the only transitions an agent token can make, and deleting a note is human-only.
-- Local mode has no `on_hold` outcome path: leave a blocked note `approved` and report it
-  in the wrap-up so the human can re-triage it in the index UI.
 - Hub mode: never git-commit `.yikes/` contents; the resolution lives in the hub, not in a
   frontmatter edit.
 
@@ -299,7 +303,16 @@ Report what was done: per note — id, what changed, commit sha — plus every n
 anything left in the queue (local mode: remaining `new` notes awaiting triage and `on-hold`
 count; hub mode: any notes that 422ed on the outcome PATCH or otherwise need human
 attention). Before you report, reconcile: every note you pulled in step 1 must appear in
-exactly one bucket — shipped, on hold, 422ed, or refused for wrong project. If any notes were
+exactly one bucket — shipped, on hold, 422ed, **outcome PATCH failed**, or refused for wrong
+project.
+
+**Outcome PATCH failed** covers everything that is not a `2xx` and not a `422`: a timeout, a
+`5xx`, a connection or TLS error, a curl non-zero exit — anything where you could not confirm
+the hub accepted the outcome. Do NOT quietly retry it into oblivion and do NOT count the note
+as shipped. List each one for the user with what you did and what the transport said, and say
+plainly: the note is still `approved` in the hub, so the next run will pull it again and
+re-do the work unless they fix the outcome by hand or the transport recovers. If the work
+shipped with a commit, give them the sha so they can record it themselves. If any notes were
 **refused for wrong project** (step 0), list them explicitly with their `project` slug — a
 foreign note in the working copy means a bad pull or a stale/shared `.yikes/`, and the user
 needs to know to clean it up.
