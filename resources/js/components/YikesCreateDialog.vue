@@ -93,7 +93,7 @@ function submit(fastTrack = false): void {
                     severity: "success",
                     summary: "Yikes noted",
                     detail: fastTrack
-                        ? "Saved pre-approved — it's already in Claude's queue."
+                        ? "Fast-tracked — it's already in Claude's queue."
                         : "Your note was saved.",
                 });
             },

@@ -9,6 +9,7 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use RobinsonRyan\Yikes\Data\Note;
+use RobinsonRyan\Yikes\Enums\NoteStatus;
 use RobinsonRyan\Yikes\Enums\PushOutcome;
 
 /**
@@ -40,7 +41,9 @@ final class HubClient
         try {
             $response = $this->request()->post('/api/v1/notes', [
                 'id' => $note->id,
-                'status' => $note->status->value,
+                // Clamped where the wire is written: ingest accepts nothing
+                // beyond new|approved, and 'on-hold' isn't even wire-legal.
+                'status' => $note->status === NoteStatus::Approved ? 'approved' : 'new',
                 'title' => $note->title,
                 'type' => $note->type->value,
                 'body' => $note->body,
