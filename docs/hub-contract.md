@@ -17,6 +17,9 @@ the hub copy is authoritative once both exist.
 - `type` is the slug of a note type registered in the hub. The set is
   user-extensible (managed in the hub UI); a fresh hub seeds
   `bug | layout | idea | refactor`. Ingesting an unregistered type → `422`.
+- Notes normally enter via the ingest API with a client-generated id. Notes may also be
+  authored directly in the hub UI; the hub then acts as the capture client (it mints the
+  UUIDv7 and stamps `context.source = "hub"`). Wire shapes are unchanged.
 
 ## Error envelope
 
@@ -150,8 +153,12 @@ Raw PNG, `Content-Type: image/png`. `404` for unknown position.
 
 ### PATCH /api/v1/notes/{id}
 
-The **only** endpoint agents may mutate through. It records the agent's *processing
-outcome* for an approved note, and it allows exactly two outcome transitions:
+Accepts three request families — **outcome**, **directed approval**, and **content
+edit**. A request must be exactly one of them; mixing content fields with `status`
+in one request → `422`.
+
+The outcome family records the agent's *processing outcome* for an approved note,
+via exactly two transitions:
 `approved → done` and `approved → on_hold`. Every note an agent pulls should leave the
 approved queue via one of them — a note it cannot finish is recorded as blocked, not
 left to be re-pulled on the next run.
@@ -205,9 +212,35 @@ naming it *is* the triage:
   page in the hub UI, so an `on_hold` reason is what a human sees when they pick the
   note back up.
 
-Everything else — ignore triage, un-doing a done note, and deletion — stays human-only
-in the hub UI. A human re-triaging a note away from `done` or `on_hold` clears its
-resolution.
+**Content edit — `title` / `body` / `type`:**
+
+```json
+{ "title": "Corrected findings", "body": "…merged markdown…", "type": "bug" }
+```
+
+- At least one of `title`, `body`, `type`. `status` and `resolution` are **prohibited**
+  on this form.
+- Field rules match ingest: `title` ≤ 200 chars or null; `body` may be an empty string,
+  not null; `type` must be a registered note-type slug (`422` otherwise).
+- Valid from any status **except `done`** (`422` — done stays terminal for agents).
+- Edits never touch the ingest idempotency hash: a capture client replaying the original
+  bundle still receives `200`, and the replay never overwrites hub-side edits.
+- `200` → the updated note resource.
+
+Typical use: human-directed corrections and merges — edit the surviving note, then
+`DELETE` the superseded one.
+
+### DELETE /api/v1/notes/{id}
+
+Hard-deletes a note and its screenshots. Scoped to the token's project — `404` for an
+unknown id or another project's note. `204` on success; a repeat call is `404`.
+
+Intended for human-directed cleanup (removing a note superseded by a merge or filed in
+error). Agents must not delete notes on their own initiative — only when a human names
+the note; see the `process-yikes` skill's rules.
+
+Everything else — ignore triage and un-doing a done note — stays human-only in the hub
+UI. A human re-triaging a note away from `done` or `on_hold` clears its resolution.
 
 ---
 
@@ -221,3 +254,10 @@ layer identically (back off, retry queued work later).
 
 Breaking changes bump the path (`/api/v2`). Additive fields may appear without notice —
 clients must ignore unknown response fields.
+
+## Changelog
+
+- 2026-08-06 — additive: agent PATCH content-edit form; agent `DELETE /notes/{id}`;
+  notes may be authored and edited directly in the hub UI (hub acts as the capture
+  client). The former "deletion stays human-only" rule is superseded by the DELETE
+  endpoint's human-directed-only rule.

@@ -1,6 +1,6 @@
 ---
 name: process-yikes
-description: Process the Yikes dev/QC note queue. Use when the user asks to "process the yikes notes", "work the yikes queue", "handle the yikes backlog", "run the yikes", "implement the approved yikes notes", or otherwise wants the in-app Yikes feedback notes triaged and the approved ones implemented. Also takes a single note as an argument (UUID, id fragment, or title words — "process yikes 2f713c8f", "work on the header-contrast yikes"): a named note is auto-approved and processed on its own.
+description: Process the Yikes dev/QC note queue. Use when the user asks to "process the yikes notes", "work the yikes queue", "handle the yikes backlog", "run the yikes", "implement the approved yikes notes", or otherwise wants the in-app Yikes feedback notes triaged and the approved ones implemented. Also takes a single note as an argument (UUID, id fragment, or title words — "process yikes 2f713c8f", "work on the header-contrast yikes"): a named note is auto-approved and processed on its own. Also handles directed note maintenance — "merge these yikes notes", "edit that yikes note", "delete the superseded yikes".
 ---
 
 # Process Yikes Notes
@@ -46,6 +46,26 @@ THAT ONE NOTE, not the queue. The user naming it **is** the triage, so a note th
 
 Skip the queue report in this mode (mention other approved notes exist, but work only the
 named one).
+
+## Directed edits and deletes — hub mode, human-directed only
+
+The hub agent API also permits editing a note's content and deleting a note — but ONLY
+when the human explicitly asks ("fix that note's title", "merge these two notes", "delete
+the old one"). Never edit or delete on your own initiative.
+
+- **Content edit:** `PATCH $HUB/api/v1/notes/<id>` with any of `{"title": …, "body": …,
+  "type": …}` — at least one, and no `status` or `resolution` alongside (mixing is a
+  `422`). Valid from any status except `done` (`422` — done stays terminal for agents).
+  Edits never affect ingest idempotency: a capture client replaying its original bundle
+  still gets `200` and cannot clobber the edit.
+- **Delete:** `DELETE $HUB/api/v1/notes/<id>` → `204` (repeat call: `404`). Permanently
+  removes the note and its screenshots.
+- **Merging note A into note B** (the common directed cleanup): edit the surviving note's
+  `title`/`body` so it is fully self-contained, then delete the superseded one. Name both
+  ids in the wrap-up.
+
+Local mode has no edit/delete API: a directed content fix is a note-file edit, and
+deletion stays human-only via the local index UI.
 
 ## Step 0 — detect the mode
 
@@ -255,10 +275,11 @@ supply it or confirm we drop the row" is what earns its place.
 
 `200` returns the updated note. A `422` on either form means the note is no longer
 `approved` (someone re-triaged it while you worked) or the payload is malformed — report it
-to the user and move on; do not force it. This PATCH is the ONLY endpoint the agent API
-lets you mutate through, and it permits exactly three forms: the two outcome transitions
-`approved → done` / `approved → on_hold`, plus `{"status": "approved"}` — directed
-approval, used ONLY in directed processing (the user named the note; see above).
+to the user and move on; do not force it. The PATCH endpoint permits four request forms:
+the two outcome transitions `approved → done` / `approved → on_hold`; `{"status":
+"approved"}` — directed approval, used ONLY in directed processing (the user named the
+note; see above); and the content edit (`title`/`body`/`type`), used ONLY under explicit
+human direction (see "Directed edits and deletes").
 
 Optionally update the working copy's frontmatter to match (status + resolution) so a re-run
 sees the outcome — but the hub's state is what counts.
@@ -307,9 +328,11 @@ notes. Mark each covered note `done` with the shared commit sha and its own reso
 
 ## Hard rules
 
-- **Never delete a note file** — status changes only. This applies to the hub-mode working
-  copy too: materialized notes, state files, and screenshots stay on disk untouched until a
-  human removes them. Deletion is a human action (index UI in local mode, hub UI in hub mode).
+- **Never delete a note on your own initiative.** In hub mode the API permits `DELETE`,
+  but only a human's explicit direction (naming the note to delete, or a merge that names
+  the superseded note) authorizes it. Local-mode note files are never deleted by the agent
+  — deletion there is the index UI's job. The hub-mode working copy on disk (materialized
+  notes, state files, screenshots) stays untouched until a human removes it.
 - **Never delete, move, or modify screenshots or state files.** They are the permanent record
   of what was reported.
 - Only Claude sets `status: done`, and only with a real implementing commit sha in
@@ -330,7 +353,8 @@ notes. Mark each covered note `done` with the shared commit sha and its own reso
   directed-processing auto-approval of a note the user explicitly named (the naming is the
   triage). Queue-mode triage — approving, putting back in play, ignoring — stays human
   (index UI in local mode, hub UI in hub mode). Never approve a note the user did not
-  name, and never re-open a `done` note; deleting a note is human-only everywhere.
+  name, and never re-open a `done` note; edits and deletes happen only under explicit
+  human direction (see "Directed edits and deletes").
 - Hub mode: never git-commit `.yikes/` contents; the resolution lives in the hub, not in a
   frontmatter edit.
 
