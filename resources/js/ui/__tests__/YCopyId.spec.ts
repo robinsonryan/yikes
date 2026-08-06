@@ -34,12 +34,14 @@ describe("YCopyId", () => {
         expect(writeText).toHaveBeenCalledWith(ID);
     });
 
-    it("does not claim success when the clipboard write fails", async () => {
+    it("reports a failed clipboard write instead of claiming success", async () => {
         writeText.mockRejectedValue(new Error("denied"));
         const wrapper = mount(YCopyId, { props: { id: ID } });
 
         await wrapper.find("button").trigger("click");
-        await new Promise((resolve) => setTimeout(resolve, 10));
+        await vi.waitFor(() => {
+            expect(wrapper.text()).toContain("Copy failed");
+        });
 
         expect(wrapper.text()).not.toContain("Copied");
     });
