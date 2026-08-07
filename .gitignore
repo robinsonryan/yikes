@@ -2,3 +2,12 @@
 /node_modules/
 /.phpunit.cache/
 composer.lock
+
+# Claude harness symlinks (managed by link.sh, not committed)
+.claude/agents
+.claude/constitution.md
+.claude/imports
+.claude/knowledge
+.claude/skills
+.claude/scheduled_tasks
+.claude/scheduled_tasks.lock
