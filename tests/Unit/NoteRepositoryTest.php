@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
+use Illuminate\Http\UploadedFile;
 use RobinsonRyan\Yikes\Data\Note;
 use RobinsonRyan\Yikes\Enums\NoteStatus;
 use RobinsonRyan\Yikes\Enums\NoteType;
 use RobinsonRyan\Yikes\Support\NoteRepository;
 use RobinsonRyan\Yikes\Tests\TestCase;
-use Illuminate\Http\UploadedFile;
 
 uses(TestCase::class);
 
@@ -31,52 +31,52 @@ function createNote(NoteRepository $repository, array $overrides = []): Note
     );
 }
 
-describe('bootstrap', function () {
-    it('initializes the directory with a .gitignore and README on first write', function () {
+describe('bootstrap', function (): void {
+    it('initializes the directory with a .gitignore and README on first write', function (): void {
         $repo = repository();
 
         createNote($repo);
 
-        expect(file_get_contents($repo->basePath() . '/.gitignore'))->toContain('screenshots/pending/')
-            ->and(is_file($repo->basePath() . '/README.md'))->toBeTrue();
+        expect(file_get_contents($repo->basePath().'/.gitignore'))->toContain('screenshots/pending/')
+            ->and(is_file($repo->basePath().'/README.md'))->toBeTrue();
     });
 });
 
-describe('create', function () {
-    it('writes a note file named by timestamp and uuid prefix', function () {
+describe('create', function (): void {
+    it('writes a note file named by timestamp and uuid prefix', function (): void {
         $repo = repository();
 
         $note = createNote($repo);
 
-        $files = glob($repo->basePath() . '/notes/*.md');
+        $files = glob($repo->basePath().'/notes/*.md');
 
         expect($files)->toHaveCount(1)
-            ->and(basename((string) $files[0]))->toMatch('/^\d{8}-\d{6}-' . substr($note->id, -8) . '\.md$/')
+            ->and(basename((string) $files[0]))->toMatch('/^\d{8}-\d{6}-'.substr($note->id, -8).'\.md$/')
             ->and($note->status)->toBe(NoteStatus::New);
     });
 
-    it('persists the state snapshot to its own file and records the relative path', function () {
+    it('persists the state snapshot to its own file and records the relative path', function (): void {
         $repo = repository();
 
         $note = createNote($repo, ['stateJson' => '{"cart":{"items":3}}']);
 
-        expect($note->stateFile)->toBe('state/' . $note->id . '.json')
+        expect($note->stateFile)->toBe('state/'.$note->id.'.json')
             ->and(file_get_contents($repo->path((string) $note->stateFile)))->toBe('{"cart":{"items":3}}');
     });
 
-    it('leaves state_file null when no snapshot is given', function () {
+    it('leaves state_file null when no snapshot is given', function (): void {
         $note = createNote(repository());
 
         expect($note->stateFile)->toBeNull();
     });
 
-    it('normalizes a blank title to null', function () {
+    it('normalizes a blank title to null', function (): void {
         $note = createNote(repository(), ['title' => '   ']);
 
         expect($note->title)->toBeNull();
     });
 
-    it('persists an explicit initial status', function () {
+    it('persists an explicit initial status', function (): void {
         $repo = repository();
 
         $note = createNote($repo, ['status' => NoteStatus::Approved]);
@@ -86,8 +86,8 @@ describe('create', function () {
     });
 });
 
-describe('all / find', function () {
-    it('lists notes newest first and filters by status', function () {
+describe('all / find', function (): void {
+    it('lists notes newest first and filters by status', function (): void {
         $repo = repository();
 
         $first = createNote($repo, ['title' => 'first']);
@@ -103,7 +103,7 @@ describe('all / find', function () {
             ->and($all->pluck('id')->all())->toContain($first->id);
     });
 
-    it('finds a note by id and returns null for unknown or malformed ids', function () {
+    it('finds a note by id and returns null for unknown or malformed ids', function (): void {
         $repo = repository();
 
         $note = createNote($repo);
@@ -114,8 +114,8 @@ describe('all / find', function () {
     });
 });
 
-describe('updateStatus', function () {
-    it('rewrites the frontmatter status on disk', function () {
+describe('updateStatus', function (): void {
+    it('rewrites the frontmatter status on disk', function (): void {
         $repo = repository();
 
         $note = createNote($repo);
@@ -125,13 +125,13 @@ describe('updateStatus', function () {
             ->and($repo->find($note->id)?->status)->toBe(NoteStatus::OnHold);
     });
 
-    it('returns null for an unknown note', function () {
+    it('returns null for an unknown note', function (): void {
         expect(repository()->updateStatus('01890a5d-ac96-774b-bcce-b30209999999', NoteStatus::Done))->toBeNull();
     });
 });
 
-describe('update', function () {
-    it('rewrites the title and body, leaving everything else untouched', function () {
+describe('update', function (): void {
+    it('rewrites the title and body, leaving everything else untouched', function (): void {
         $repo = repository();
 
         $note = createNote($repo, ['stateJson' => '{"a":1}']);
@@ -142,11 +142,11 @@ describe('update', function () {
         expect($updated?->title)->toBe('Sharper title')
             ->and($updated?->body)->toBe('More thoughts after saving.')
             ->and($updated?->status)->toBe(NoteStatus::Approved)
-            ->and($updated?->stateFile)->toBe('state/' . $note->id . '.json')
+            ->and($updated?->stateFile)->toBe('state/'.$note->id.'.json')
             ->and($repo->find($note->id)?->body)->toBe('More thoughts after saving.');
     });
 
-    it('normalizes a blank title to null', function () {
+    it('normalizes a blank title to null', function (): void {
         $repo = repository();
 
         $note = createNote($repo);
@@ -155,13 +155,13 @@ describe('update', function () {
         expect($updated?->title)->toBeNull();
     });
 
-    it('returns null for an unknown note', function () {
+    it('returns null for an unknown note', function (): void {
         expect(repository()->update('01890a5d-ac96-774b-bcce-b30209999999', null, 'x'))->toBeNull();
     });
 });
 
-describe('delete', function () {
-    it('removes the note, its state file, and its screenshots directory', function () {
+describe('delete', function (): void {
+    it('removes the note, its state file, and its screenshots directory', function (): void {
         $repo = repository();
 
         $pendingId = $repo->storePendingScreenshot('user-1', UploadedFile::fake()->image('shot.png'));
@@ -172,17 +172,17 @@ describe('delete', function () {
 
         expect($repo->delete($note->id))->toBeTrue()
             ->and($repo->find($note->id))->toBeNull()
-            ->and(is_file($repo->path('state/' . $note->id . '.json')))->toBeFalse()
-            ->and(is_dir($repo->path('screenshots/' . $note->id)))->toBeFalse();
+            ->and(is_file($repo->path('state/'.$note->id.'.json')))->toBeFalse()
+            ->and(is_dir($repo->path('screenshots/'.$note->id)))->toBeFalse();
     });
 
-    it('returns false for an unknown note', function () {
+    it('returns false for an unknown note', function (): void {
         expect(repository()->delete('01890a5d-ac96-774b-bcce-b30209999999'))->toBeFalse();
     });
 });
 
-describe('deleteByStatus', function () {
-    it('removes every note with the given status and leaves the rest', function () {
+describe('deleteByStatus', function (): void {
+    it('removes every note with the given status and leaves the rest', function (): void {
         $repo = repository();
 
         $done = createNote($repo, ['title' => 'done', 'status' => NoteStatus::Done, 'stateJson' => '{"a":1}']);
@@ -192,17 +192,17 @@ describe('deleteByStatus', function () {
         expect($repo->deleteByStatus(NoteStatus::Done))->toBe(2)
             ->and($repo->find($done->id))->toBeNull()
             ->and($repo->find($alsoDone->id))->toBeNull()
-            ->and(is_file($repo->path('state/' . $done->id . '.json')))->toBeFalse()
+            ->and(is_file($repo->path('state/'.$done->id.'.json')))->toBeFalse()
             ->and($repo->find($kept->id)?->title)->toBe('kept');
     });
 
-    it('returns zero when nothing matches', function () {
+    it('returns zero when nothing matches', function (): void {
         expect(repository()->deleteByStatus(NoteStatus::Done))->toBe(0);
     });
 });
 
-describe('pending screenshots', function () {
-    it('stores, lists, and deletes pending screenshots per user', function () {
+describe('pending screenshots', function (): void {
+    it('stores, lists, and deletes pending screenshots per user', function (): void {
         $repo = repository();
 
         $first = $repo->storePendingScreenshot('user-1', UploadedFile::fake()->image('a.png'));
@@ -215,7 +215,7 @@ describe('pending screenshots', function () {
             ->and($repo->listPending('user-1'))->toBe([$second]);
     });
 
-    it('cannot delete another user\'s pending screenshot', function () {
+    it('cannot delete another user\'s pending screenshot', function (): void {
         $repo = repository();
 
         $id = $repo->storePendingScreenshot('user-1', UploadedFile::fake()->image('a.png'));
@@ -224,7 +224,7 @@ describe('pending screenshots', function () {
             ->and($repo->listPending('user-1'))->toBe([$id]);
     });
 
-    it('attaches selected pending screenshots to a new note in order', function () {
+    it('attaches selected pending screenshots to a new note in order', function (): void {
         $repo = repository();
 
         $first = $repo->storePendingScreenshot('user-1', UploadedFile::fake()->image('a.png'));
@@ -234,16 +234,16 @@ describe('pending screenshots', function () {
         $note = createNote($repo, ['pendingScreenshotIds' => [$first, $second]]);
 
         expect($note->screenshots)->toHaveCount(2)
-            ->and($note->screenshots[0])->toMatch('/^screenshots\/' . $note->id . '\/001-\d{8}-\d{6}\.png$/')
-            ->and($note->screenshots[1])->toMatch('/^screenshots\/' . $note->id . '\/002-\d{8}-\d{6}\.png$/')
+            ->and($note->screenshots[0])->toMatch('/^screenshots\/'.$note->id.'\/001-\d{8}-\d{6}\.png$/')
+            ->and($note->screenshots[1])->toMatch('/^screenshots\/'.$note->id.'\/002-\d{8}-\d{6}\.png$/')
             ->and(is_file($repo->path($note->screenshots[0])))->toBeTrue()
             // Attached files leave the pending area; excluded ones stay.
             ->and($repo->listPending('user-1'))->toBe([$excluded]);
     });
 });
 
-describe('path traversal guards', function () {
-    it('rejects malformed note ids and filenames for screenshot serving', function () {
+describe('path traversal guards', function (): void {
+    it('rejects malformed note ids and filenames for screenshot serving', function (): void {
         $repo = repository();
 
         $pendingId = $repo->storePendingScreenshot('user-1', UploadedFile::fake()->image('a.png'));
@@ -257,7 +257,7 @@ describe('path traversal guards', function () {
             ->and($repo->screenshotPath($note->id, '..\\..\\evil.png'))->toBeNull();
     });
 
-    it('rejects malformed pending ids and owner ids', function () {
+    it('rejects malformed pending ids and owner ids', function (): void {
         $repo = repository();
 
         $id = $repo->storePendingScreenshot('user-1', UploadedFile::fake()->image('a.png'));
@@ -267,7 +267,7 @@ describe('path traversal guards', function () {
             ->and($repo->pendingPath('../user-1', $id))->toBeNull();
     });
 
-    it('never resolves a path outside the screenshots tree', function () {
+    it('never resolves a path outside the screenshots tree', function (): void {
         $repo = repository();
 
         createNote($repo); // ensures the tree exists

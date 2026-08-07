@@ -11,10 +11,10 @@ use RobinsonRyan\Yikes\Tests\TestCase;
 uses(TestCase::class);
 
 beforeEach(function (): void {
-    $this->definitionsPath = sys_get_temp_dir() . '/yikes-checklist-defs-' . uniqid();
+    $this->definitionsPath = sys_get_temp_dir().'/yikes-checklist-defs-'.uniqid();
     mkdir($this->definitionsPath, 0755, true);
 
-    file_put_contents($this->definitionsPath . '/users.yaml', <<<'YAML'
+    file_put_contents($this->definitionsPath.'/users.yaml', <<<'YAML'
         slug: users
         title: User Management
         tests:
@@ -22,7 +22,7 @@ beforeEach(function (): void {
           - { slug: suspend, title: Suspend a user, steps: [Suspend., Reactivate.] }
         YAML);
 
-    file_put_contents($this->definitionsPath . '/testers.yaml', <<<'YAML'
+    file_put_contents($this->definitionsPath.'/testers.yaml', <<<'YAML'
         testers:
           - slug: andrea
             name: Andrea Evans
@@ -32,7 +32,7 @@ beforeEach(function (): void {
 });
 
 afterEach(function (): void {
-    exec('rm -rf ' . escapeshellarg($this->definitionsPath));
+    exec('rm -rf '.escapeshellarg($this->definitionsPath));
 });
 
 function checklistRepository(): ChecklistRepository
@@ -66,7 +66,7 @@ describe('ChecklistRepository', function (): void {
     });
 
     it('returns empty collections when the definitions directory is missing', function (): void {
-        $repo = new ChecklistRepository('/nonexistent-path-' . uniqid());
+        $repo = new ChecklistRepository('/nonexistent-path-'.uniqid());
 
         expect($repo->all())->toBeEmpty()
             ->and($repo->testers())->toBeEmpty();

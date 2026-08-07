@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace RobinsonRyan\Yikes\Support;
 
+use Illuminate\Support\Collection;
 use RobinsonRyan\Yikes\Data\Checklist;
 use RobinsonRyan\Yikes\Data\Tester;
-use Illuminate\Support\Collection;
 use Symfony\Component\Yaml\Yaml;
+use Throwable;
 
 /**
  * Read-only loader for checklist definitions and testers.
@@ -18,11 +19,11 @@ use Symfony\Component\Yaml\Yaml;
  * definitions. `testers.yaml` in the same directory declares who tests
  * and which credentials their landing page displays.
  */
-final class ChecklistRepository
+final readonly class ChecklistRepository
 {
-    private const string SLUG_PATTERN = '/^[a-z0-9][a-z0-9-]{0,63}$/D';
+    private const SLUG_PATTERN = '/^[a-z0-9][a-z0-9-]{0,63}$/D';
 
-    public function __construct(private readonly string $definitionsPath) {}
+    public function __construct(private string $definitionsPath) {}
 
     /**
      * All suite definitions, ordered by filename.
@@ -31,7 +32,7 @@ final class ChecklistRepository
      */
     public function all(): Collection
     {
-        $files = glob($this->definitionsPath . '/*.yaml') ?: [];
+        $files = glob($this->definitionsPath.'/*.yaml') ?: [];
 
         return collect($files)
             ->reject(static fn (string $file): bool => basename($file) === 'testers.yaml')
@@ -41,7 +42,7 @@ final class ChecklistRepository
 
                 try {
                     return $contents === false ? null : Checklist::fromYaml($contents);
-                } catch (\Throwable) {
+                } catch (Throwable) {
                     return null;
                 }
             })
@@ -71,7 +72,7 @@ final class ChecklistRepository
             ->map(function (mixed $tester): ?Tester {
                 try {
                     return Tester::fromArray(is_array($tester) ? $tester : []);
-                } catch (\Throwable) {
+                } catch (Throwable) {
                     return null;
                 }
             })
@@ -105,17 +106,22 @@ final class ChecklistRepository
         $roles = [];
 
         foreach (is_array($data['roles'] ?? null) ? $data['roles'] : [] as $role) {
-            if (! is_array($role) || ! is_string($role['key'] ?? null) || ! is_string($role['name'] ?? null)) {
+            if (! is_array($role)) {
                 continue;
             }
-
+            if (! is_string($role['key'] ?? null)) {
+                continue;
+            }
+            if (! is_string($role['name'] ?? null)) {
+                continue;
+            }
             $roles[] = [
                 'key' => $role['key'],
                 'name' => $role['name'],
                 'summary' => isset($role['summary']) ? (string) $role['summary'] : null,
                 'can' => array_values(array_map(
                     static fn (mixed $item): string => (string) $item,
-                    array_filter(is_array($role['can'] ?? null) ? $role['can'] : [], 'is_scalar'),
+                    array_filter(is_array($role['can'] ?? null) ? $role['can'] : [], is_scalar(...)),
                 )),
             ];
         }
@@ -141,7 +147,7 @@ final class ChecklistRepository
      */
     private function testersFile(): array
     {
-        $file = $this->definitionsPath . '/testers.yaml';
+        $file = $this->definitionsPath.'/testers.yaml';
 
         if (! is_file($file)) {
             return [];
@@ -155,7 +161,7 @@ final class ChecklistRepository
 
         try {
             $data = Yaml::parse($contents);
-        } catch (\Throwable) {
+        } catch (Throwable) {
             return [];
         }
 

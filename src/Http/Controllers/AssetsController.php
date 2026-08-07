@@ -23,9 +23,9 @@ final class AssetsController
     public function show(string $file): BinaryFileResponse
     {
         $dist = realpath(YikesAssets::distPath());
-        $path = $dist === false ? false : realpath($dist . '/' . $file);
+        $path = $dist === false ? false : realpath($dist.'/'.$file);
 
-        abort_if($path === false || ! str_starts_with($path, $dist . DIRECTORY_SEPARATOR), 404);
+        abort_if($path === false || ! str_starts_with($path, $dist.DIRECTORY_SEPARATOR), 404);
 
         $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
 

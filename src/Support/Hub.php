@@ -14,7 +14,7 @@ namespace RobinsonRyan\Yikes\Support;
 final class Hub
 {
     /** The hub's hard per-file screenshot cap (it 413s above this). */
-    public const int MAX_SCREENSHOT_BYTES = 5 * 1024 * 1024;
+    public const MAX_SCREENSHOT_BYTES = 5 * 1024 * 1024;
 
     public static function enabled(): bool
     {

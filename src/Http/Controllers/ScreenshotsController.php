@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace RobinsonRyan\Yikes\Http\Controllers;
 
-use RobinsonRyan\Yikes\Http\Requests\StoreScreenshotRequest;
-use RobinsonRyan\Yikes\Support\NoteRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Http\UploadedFile;
+use RobinsonRyan\Yikes\Http\Requests\StoreScreenshotRequest;
+use RobinsonRyan\Yikes\Support\NoteRepository;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
@@ -18,9 +18,9 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
  * strict id/filename validation + realpath containment (the files live
  * outside public/ on purpose).
  */
-final class ScreenshotsController
+final readonly class ScreenshotsController
 {
-    public function __construct(private readonly NoteRepository $notes) {}
+    public function __construct(private NoteRepository $notes) {}
 
     public function storePending(StoreScreenshotRequest $request): JsonResponse
     {

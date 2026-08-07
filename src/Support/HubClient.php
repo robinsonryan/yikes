@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Http;
 use RobinsonRyan\Yikes\Data\Note;
 use RobinsonRyan\Yikes\Enums\NoteStatus;
 use RobinsonRyan\Yikes\Enums\PushOutcome;
+use stdClass;
 
 /**
  * HTTP push client for the hub's ingest API (docs/hub-contract.md).
@@ -20,12 +21,12 @@ use RobinsonRyan\Yikes\Enums\PushOutcome;
  * All outcomes are expressed as PushOutcome — this class never throws for
  * hub/network trouble.
  */
-final class HubClient
+final readonly class HubClient
 {
     public function __construct(
-        private readonly string $baseUrl,
-        private readonly string $token,
-        private readonly int $timeoutSeconds,
+        private string $baseUrl,
+        private string $token,
+        private int $timeoutSeconds,
     ) {}
 
     /**
@@ -48,12 +49,12 @@ final class HubClient
                 'type' => $note->type->value,
                 'body' => $note->body,
                 'created_by' => [
-                    'name' => (string) ($note->createdBy['name'] ?? ''),
-                    'email' => (string) ($note->createdBy['email'] ?? ''),
+                    'name' => $note->createdBy['name'],
+                    'email' => $note->createdBy['email'],
                 ],
                 'captured_at' => $note->createdAt->toIso8601String(),
                 // JSON `{}` (not `[]`) when the captured context is empty.
-                'context' => $note->context === [] ? new \stdClass() : $note->context,
+                'context' => $note->context === [] ? new stdClass : $note->context,
                 'state' => $state,
                 'screenshot_count' => count($note->screenshots),
             ]);
@@ -79,7 +80,7 @@ final class HubClient
         try {
             $response = $this->request()
                 ->attach('file', $contents, basename($absolutePath), ['Content-Type' => 'image/png'])
-                ->post('/api/v1/notes/' . $noteId . '/screenshots', [
+                ->post('/api/v1/notes/'.$noteId.'/screenshots', [
                     'position' => $position,
                 ]);
         } catch (ConnectionException) {

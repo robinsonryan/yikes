@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
+use Carbon\CarbonImmutable;
 use RobinsonRyan\Yikes\Data\Note;
 use RobinsonRyan\Yikes\Enums\NoteStatus;
 use RobinsonRyan\Yikes\Enums\NoteType;
 use RobinsonRyan\Yikes\Tests\TestCase;
-use Carbon\CarbonImmutable;
 
 uses(TestCase::class);
 
@@ -38,8 +38,8 @@ function makeNote(array $overrides = []): Note
     return new Note(...array_merge($defaults, $overrides));
 }
 
-describe('Note file round-trip', function () {
-    it('round-trips every field through toFileContents/fromFileContents', function () {
+describe('Note file round-trip', function (): void {
+    it('round-trips every field through toFileContents/fromFileContents', function (): void {
         $note = makeNote();
 
         $parsed = Note::fromFileContents($note->toFileContents());
@@ -57,7 +57,7 @@ describe('Note file round-trip', function () {
             ->and($parsed->body)->toBe($note->body);
     });
 
-    it('round-trips null title, null state file, and empty screenshots', function () {
+    it('round-trips null title, null state file, and empty screenshots', function (): void {
         $note = makeNote(['title' => null, 'stateFile' => null, 'screenshots' => []]);
 
         $parsed = Note::fromFileContents($note->toFileContents());
@@ -67,7 +67,7 @@ describe('Note file round-trip', function () {
             ->and($parsed->screenshots)->toBe([]);
     });
 
-    it('round-trips a resolution block', function () {
+    it('round-trips a resolution block', function (): void {
         $note = makeNote([
             'status' => NoteStatus::Done,
             'resolution' => [
@@ -83,24 +83,24 @@ describe('Note file round-trip', function () {
             ->and($parsed->resolution)->toBe($note->resolution);
     });
 
-    it('starts the file with YAML frontmatter delimiters', function () {
+    it('starts the file with YAML frontmatter delimiters', function (): void {
         $contents = makeNote()->toFileContents();
 
         expect($contents)->toStartWith("---\n")
             ->and($contents)->toContain("\n---\n\n");
     });
 
-    it('rejects contents without frontmatter', function () {
+    it('rejects contents without frontmatter', function (): void {
         Note::fromFileContents('just a markdown body, no frontmatter');
     })->throws(InvalidArgumentException::class);
 
-    it('rejects frontmatter missing required fields', function () {
+    it('rejects frontmatter missing required fields', function (): void {
         Note::fromFileContents("---\ntitle: whoops\n---\nbody");
     })->throws(InvalidArgumentException::class);
 });
 
-describe('Note immutability helpers', function () {
-    it('withStatus returns a new instance with only status changed', function () {
+describe('Note immutability helpers', function (): void {
+    it('withStatus returns a new instance with only status changed', function (): void {
         $note = makeNote();
 
         $approved = $note->withStatus(NoteStatus::Approved);
@@ -111,7 +111,7 @@ describe('Note immutability helpers', function () {
             ->and($approved->body)->toBe($note->body);
     });
 
-    it('toArray exposes the frontmatter shape plus body', function () {
+    it('toArray exposes the frontmatter shape plus body', function (): void {
         $array = makeNote()->toArray();
 
         expect($array)->toHaveKeys([

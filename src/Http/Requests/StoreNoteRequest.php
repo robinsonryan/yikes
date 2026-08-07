@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace RobinsonRyan\Yikes\Http\Requests;
 
+use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 use RobinsonRyan\Yikes\Enums\NoteStatus;
 use RobinsonRyan\Yikes\Enums\NoteType;
 use RobinsonRyan\Yikes\Http\Rules\BoundedContext;
-use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 /**
  * Validates a new yikes note. The context payload is deliberately loose —
@@ -46,7 +46,7 @@ final class StoreNoteRequest extends FormRequest
 
             'context' => ['nullable', 'array', new BoundedContext],
 
-            'state' => ['nullable', 'string', 'max:' . $maxStateBytes],
+            'state' => ['nullable', 'string', 'max:'.$maxStateBytes],
 
             'screenshots' => ['nullable', 'array', 'max:20'],
             'screenshots.*' => ['string', 'uuid'],

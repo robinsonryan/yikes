@@ -149,7 +149,7 @@ describe('storing notes', function (): void {
         $context = [];
 
         foreach (range(1, BoundedContext::MAX_KEYS + 1) as $index) {
-            $context['key_' . $index] = 'value';
+            $context['key_'.$index] = 'value';
         }
 
         $this->postJson('/yikes/notes', ['body' => 'Too much context', 'context' => $context])

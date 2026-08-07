@@ -22,7 +22,7 @@ final class YikesAssets
 
     public static function distPath(string $file = ''): string
     {
-        return dirname(__DIR__, 2) . '/dist' . ($file === '' ? '' : '/' . $file);
+        return dirname(__DIR__, 2).'/dist'.($file === '' ? '' : '/'.$file);
     }
 
     /** Cache-busting token derived from the built bundle. */
@@ -32,27 +32,25 @@ final class YikesAssets
 
         $mtime = is_file($entry) ? (int) filemtime($entry) : 0;
 
-        return substr(md5($mtime . '|' . (is_file($entry) ? filesize($entry) : 0)), 0, 12);
+        return substr(md5($mtime.'|'.(is_file($entry) ? filesize($entry) : 0)), 0, 12);
     }
 
     public static function assetUrl(string $file): string
     {
-        return route('yikes.assets', ['file' => $file]) . '?v=' . self::version();
+        return route('yikes.assets', ['file' => $file]).'?v='.self::version();
     }
 
     /**
      * The full injectable HTML: config + module script tag.
      */
-    public static function injectHtml(Request $request): string
+    public static function injectHtml(): string
     {
         $maxScreenshotBytes = (int) config('yikes.max_screenshot_kb', 4096) * 1024;
-
         if (Hub::enabled()) {
             // The hub hard-413s any screenshot over its cap — never let the
             // client store/push a file the hub would bounce.
             $maxScreenshotBytes = min($maxScreenshotBytes, Hub::MAX_SCREENSHOT_BYTES);
         }
-
         $config = [
             'base' => url((string) config('yikes.route_prefix', 'yikes')),
             'testingBase' => url((string) config('yikes.checklists.route_prefix', 'testing')),
@@ -65,15 +63,13 @@ final class YikesAssets
             'hub' => Hub::enabled(),
             'maxScreenshotBytes' => $maxScreenshotBytes,
         ];
-
         $json = json_encode($config, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT);
-
         // Nonce-based CSP support: stamp the request nonce on both tags —
         // the inline bootstrap needs it under `script-src 'nonce-…'`, and
         // the module tag needs it under 'strict-dynamic'. No nonce = ''.
         $nonce = CspNonce::attr();
 
-        return "\n<script{$nonce}>" . self::MARKER . ' = ' . $json . ';</script>'
-            . "\n" . '<script type="module"' . $nonce . ' src="' . self::assetUrl('yikes.js') . '"></script>' . "\n";
+        return "\n<script{$nonce}>".self::MARKER.' = '.$json.';</script>'
+            ."\n".'<script type="module"'.$nonce.' src="'.self::assetUrl('yikes.js').'"></script>'."\n";
     }
 }

@@ -61,7 +61,7 @@ final class CspNonce
 
         return $nonce === null
             ? ''
-            : ' nonce="' . htmlspecialchars($nonce, ENT_QUOTES, 'UTF-8') . '"';
+            : ' nonce="'.htmlspecialchars($nonce, ENT_QUOTES, 'UTF-8').'"';
     }
 
     private static function normalize(mixed $nonce): ?string

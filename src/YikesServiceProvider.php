@@ -19,7 +19,7 @@ use RobinsonRyan\Yikes\Support\HubClient;
 use RobinsonRyan\Yikes\Support\NoteRepository;
 use RobinsonRyan\Yikes\Support\PushQueue;
 
-class YikesServiceProvider extends ServiceProvider
+final class YikesServiceProvider extends ServiceProvider
 {
     /**
      * Register any application services.
@@ -27,7 +27,7 @@ class YikesServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->mergeConfigFrom(
-            __DIR__ . '/Config/yikes.php',
+            __DIR__.'/../config/yikes.php',
             'yikes',
         );
 
@@ -80,11 +80,11 @@ class YikesServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->publishes([
-            __DIR__ . '/Config/yikes.php' => config_path('yikes.php'),
+            __DIR__.'/../config/yikes.php' => config_path('yikes.php'),
         ], 'yikes-config');
 
-        $this->loadRoutesFrom(__DIR__ . '/../routes/web.php');
-        $this->loadViewsFrom(__DIR__ . '/../resources/views', 'yikes');
+        $this->loadRoutesFrom(__DIR__.'/../routes/web.php');
+        $this->loadViewsFrom(__DIR__.'/../resources/views', 'yikes');
 
         // Auto-inject the island bootstrap into host HTML responses. Pushed
         // as GLOBAL middleware (not onto a group) so it works in any host —

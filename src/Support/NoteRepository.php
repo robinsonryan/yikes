@@ -4,14 +4,15 @@ declare(strict_types=1);
 
 namespace RobinsonRyan\Yikes\Support;
 
-use RobinsonRyan\Yikes\Data\Note;
-use RobinsonRyan\Yikes\Enums\NoteStatus;
-use RobinsonRyan\Yikes\Enums\NoteType;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
+use RobinsonRyan\Yikes\Data\Note;
+use RobinsonRyan\Yikes\Enums\NoteStatus;
+use RobinsonRyan\Yikes\Enums\NoteType;
 use RuntimeException;
+use Throwable;
 
 /**
  * All filesystem I/O for the yikes flat-file store.
@@ -27,18 +28,18 @@ use RuntimeException;
  * it touches a path, and served files are additionally realpath-contained
  * within the screenshots tree.
  */
-final class NoteRepository
+final readonly class NoteRepository
 {
-    private const string UUID_PATTERN = '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/D';
+    private const UUID_PATTERN = '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/D';
 
-    private const string SCREENSHOT_FILE_PATTERN = '/^\d{3}-\d{8}-\d{6}\.(png|jpg|jpeg|webp)$/D';
+    private const SCREENSHOT_FILE_PATTERN = '/^\d{3}-\d{8}-\d{6}\.(png|jpg|jpeg|webp)$/D';
 
-    private const string OWNER_PATTERN = '/^[A-Za-z0-9._-]{1,64}$/D';
+    private const OWNER_PATTERN = '/^[A-Za-z0-9._-]{1,64}$/D';
 
     /** @var list<string> */
-    private const array IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp'];
+    private const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp'];
 
-    public function __construct(private readonly string $basePath) {}
+    public function __construct(private string $basePath) {}
 
     /*
     |--------------------------------------------------------------------------
@@ -77,7 +78,7 @@ final class NoteRepository
         $stateFile = null;
 
         if ($stateJson !== null && $stateJson !== '') {
-            $stateFile = 'state/' . $id . '.json';
+            $stateFile = 'state/'.$id.'.json';
             $this->ensureDirectory($this->path('state'));
             file_put_contents($this->path($stateFile), $stateJson);
         }
@@ -102,7 +103,7 @@ final class NoteRepository
         // second-resolution timestamp prefix and overwrite files.
         $filename = sprintf('%s-%s.md', $createdAt->format('Ymd-His'), substr($id, -8));
         $this->ensureDirectory($this->path('notes'));
-        file_put_contents($this->path('notes/' . $filename), $note->toFileContents());
+        file_put_contents($this->path('notes/'.$filename), $note->toFileContents());
 
         return $note;
     }
@@ -122,12 +123,12 @@ final class NoteRepository
 
                 try {
                     return $contents === false ? null : Note::fromFileContents($contents);
-                } catch (\Throwable) {
+                } catch (Throwable) {
                     return null;
                 }
             })
             ->filter(fn (?Note $note): bool => $note instanceof Note
-                && ($status === null || $note->status === $status))
+                && (! $status instanceof NoteStatus || $note->status === $status))
             ->sortByDesc(fn (Note $note) => $note->createdAt->getTimestamp())
             ->values();
     }
@@ -213,7 +214,7 @@ final class NoteRepository
         if ($contents !== false) {
             try {
                 $note = Note::fromFileContents($contents);
-            } catch (\Throwable) {
+            } catch (Throwable) {
                 // Corrupt frontmatter — still delete the note file itself.
             }
         }
@@ -224,7 +225,7 @@ final class NoteRepository
             unlink($this->path($note->stateFile));
         }
 
-        $this->deleteDirectory($this->path('screenshots/' . $id));
+        $this->deleteDirectory($this->path('screenshots/'.$id));
 
         return true;
     }
@@ -254,17 +255,17 @@ final class NoteRepository
     {
         $this->initialize();
 
-        $extension = strtolower($file->extension());
+        $extension = strtolower($file->extension() ?? '');
 
         if (! in_array($extension, self::IMAGE_EXTENSIONS, true)) {
-            throw new RuntimeException('Unsupported screenshot type: ' . $extension);
+            throw new RuntimeException('Unsupported screenshot type: '.$extension);
         }
 
         $id = (string) Str::uuid7();
         $directory = $this->pendingDirectory($ownerId);
         $this->ensureDirectory($directory);
 
-        $file->move($directory, $id . '.' . $extension);
+        $file->move($directory, $id.'.'.$extension);
 
         return $id;
     }
@@ -282,7 +283,7 @@ final class NoteRepository
         $files = [];
 
         foreach (self::IMAGE_EXTENSIONS as $extension) {
-            $files = [...$files, ...(glob($this->pendingDirectory($ownerId) . '/*.' . $extension) ?: [])];
+            $files = [...$files, ...(glob($this->pendingDirectory($ownerId).'/*.'.$extension) ?: [])];
         }
 
         usort($files, fn (string $a, string $b): int => filemtime($a) <=> filemtime($b));
@@ -362,7 +363,7 @@ final class NoteRepository
             return null;
         }
 
-        return $this->containedScreenshotPath('screenshots/' . strtolower($noteId) . '/' . $filename);
+        return $this->containedScreenshotPath('screenshots/'.strtolower($noteId).'/'.$filename);
     }
 
     /**
@@ -377,10 +378,10 @@ final class NoteRepository
         $directory = $this->pendingDirectory($ownerId);
 
         foreach (self::IMAGE_EXTENSIONS as $extension) {
-            $candidate = $directory . '/' . strtolower($id) . '.' . $extension;
+            $candidate = $directory.'/'.strtolower($id).'.'.$extension;
 
             if (is_file($candidate)) {
-                $relative = str_replace($this->basePath() . '/', '', $candidate);
+                $relative = str_replace($this->basePath().'/', '', $candidate);
 
                 return $this->containedScreenshotPath($relative);
             }
@@ -406,8 +407,8 @@ final class NoteRepository
             $this->ensureDirectory($base);
         }
 
-        if (! is_file($base . '/.gitignore')) {
-            file_put_contents($base . '/.gitignore', <<<'GITIGNORE'
+        if (! is_file($base.'/.gitignore')) {
+            file_put_contents($base.'/.gitignore', <<<'GITIGNORE'
                 # Pending screenshots are transient (snapped but not yet attached to a
                 # note) — never commit them. Everything else in .yikes/ IS committed.
                 screenshots/pending/
@@ -415,8 +416,8 @@ final class NoteRepository
                 GITIGNORE);
         }
 
-        if (! is_file($base . '/README.md')) {
-            file_put_contents($base . '/README.md', <<<'README'
+        if (! is_file($base.'/README.md')) {
+            file_put_contents($base.'/README.md', <<<'README'
                 # .yikes/ — in-app dev/QC notes
 
                 Notes captured from inside the app via the "Yikes" button (package
@@ -442,7 +443,7 @@ final class NoteRepository
 
     public function path(string $relative): string
     {
-        return $this->basePath() . '/' . ltrim($relative, '/');
+        return $this->basePath().'/'.ltrim($relative, '/');
     }
 
     /**
@@ -456,7 +457,7 @@ final class NoteRepository
             return null;
         }
 
-        $candidates = glob($this->path('notes/*-' . substr($id, -8) . '.md')) ?: [];
+        $candidates = glob($this->path('notes/*-'.substr($id, -8).'.md')) ?: [];
 
         foreach ($candidates as $candidate) {
             $contents = file_get_contents($candidate);
@@ -469,7 +470,7 @@ final class NoteRepository
                 if (Note::fromFileContents($contents)->id === $id) {
                     return $candidate;
                 }
-            } catch (\Throwable) {
+            } catch (Throwable) {
                 continue;
             }
         }
@@ -491,7 +492,7 @@ final class NoteRepository
             return null;
         }
 
-        if (! str_starts_with($real, $root . DIRECTORY_SEPARATOR)) {
+        if (! str_starts_with($real, $root.DIRECTORY_SEPARATOR)) {
             return null;
         }
 
@@ -502,13 +503,13 @@ final class NoteRepository
     {
         $safeOwner = preg_match(self::OWNER_PATTERN, $ownerId) === 1 ? $ownerId : sha1($ownerId);
 
-        return $this->path('screenshots/pending/' . $safeOwner);
+        return $this->path('screenshots/pending/'.$safeOwner);
     }
 
     private function ensureDirectory(string $directory): void
     {
         if (! is_dir($directory) && ! mkdir($directory, 0755, true) && ! is_dir($directory)) {
-            throw new RuntimeException('Unable to create directory: ' . $directory);
+            throw new RuntimeException('Unable to create directory: '.$directory);
         }
     }
 
@@ -521,11 +522,13 @@ final class NoteRepository
         $files = scandir($directory) ?: [];
 
         foreach ($files as $file) {
-            if ($file === '.' || $file === '..') {
+            if ($file === '.') {
                 continue;
             }
-
-            $path = $directory . '/' . $file;
+            if ($file === '..') {
+                continue;
+            }
+            $path = $directory.'/'.$file;
 
             is_dir($path) ? $this->deleteDirectory($path) : unlink($path);
         }

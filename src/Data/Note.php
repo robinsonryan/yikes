@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace RobinsonRyan\Yikes\Data;
 
-use RobinsonRyan\Yikes\Enums\NoteStatus;
-use RobinsonRyan\Yikes\Enums\NoteType;
 use Carbon\CarbonImmutable;
 use InvalidArgumentException;
+use RobinsonRyan\Yikes\Enums\NoteStatus;
+use RobinsonRyan\Yikes\Enums\NoteType;
 use Symfony\Component\Yaml\Yaml;
 
 /**
@@ -97,7 +97,7 @@ final readonly class Note
     {
         $frontmatter = Yaml::dump($this->frontmatter(), 6, 2);
 
-        return "---\n" . $frontmatter . "---\n\n" . rtrim($this->body) . "\n";
+        return "---\n".$frontmatter."---\n\n".rtrim($this->body)."\n";
     }
 
     public function withStatus(NoteStatus $status): self

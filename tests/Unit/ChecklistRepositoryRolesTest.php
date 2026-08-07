@@ -10,9 +10,9 @@ uses(TestCase::class);
 
 function repositoryWithTestersYaml(string $yaml): ChecklistRepository
 {
-    $path = sys_get_temp_dir() . '/yikes-roles-test-' . uniqid();
+    $path = sys_get_temp_dir().'/yikes-roles-test-'.uniqid();
     mkdir($path);
-    file_put_contents($path . '/testers.yaml', $yaml);
+    file_put_contents($path.'/testers.yaml', $yaml);
 
     return new ChecklistRepository($path);
 }
@@ -62,7 +62,7 @@ it('drops malformed role entries and defaults the reference url to null', functi
 });
 
 it('returns no roles when testers.yaml is missing', function (): void {
-    $repository = new ChecklistRepository(sys_get_temp_dir() . '/yikes-roles-missing-' . uniqid());
+    $repository = new ChecklistRepository(sys_get_temp_dir().'/yikes-roles-missing-'.uniqid());
 
     expect($repository->roles())->toBe([])
         ->and($repository->roleReferenceUrl())->toBeNull();

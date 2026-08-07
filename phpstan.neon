@@ -1,0 +1,22 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    paths:
+        - src
+    level: 8
+    # Pin analysis to the declared floor. Without it the package is developed on
+    # the PHP 8.4 DDEV container, so 8.3-only syntax analyses clean here and
+    # fatals in a consumer running 8.2.
+    phpVersion: 80200
+    tmpDir: .phpstan.cache
+    ignoreErrors:
+        # `Kernel::class` is the *contract*. `pushMiddleware()` lives on
+        # Illuminate\Foundation\Http\Kernel, and a host is free to bind
+        # something else — so the guard is real. PHPStan only ever sees
+        # Testbench's kernel (which does extend it) and calls the check
+        # redundant. It is redundant in the test harness, not in a consumer.
+        -
+            identifier: instanceof.alwaysTrue
+            path: src/YikesServiceProvider.php
+            count: 1

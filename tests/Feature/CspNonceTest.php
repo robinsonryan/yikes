@@ -13,7 +13,7 @@ uses(TestCase::class);
 /** Explicit-resolver fixture for the class-string path (config:cache safe). */
 final class FixedNonceResolver
 {
-    public function __invoke(): ?string
+    public function __invoke(): string
     {
         return 'class-string-nonce';
     }
@@ -31,7 +31,7 @@ describe('without a nonce', function (): void {
     it('emits byte-identical no-nonce output on host pages', function (): void {
         $content = (string) $this->get('/host-page')->assertOk()->getContent();
 
-        expect($content)->toContain('<script>' . YikesAssets::MARKER)
+        expect($content)->toContain('<script>'.YikesAssets::MARKER)
             ->and($content)->toContain('<script type="module" src="')
             ->and($content)->not->toContain('nonce');
     });
@@ -40,7 +40,7 @@ describe('without a nonce', function (): void {
         $content = (string) $this->get('/yikes')->assertOk()->getContent();
 
         expect($content)->toContain('<style>html, body')
-            ->and($content)->toContain('<script>' . YikesAssets::MARKER)
+            ->and($content)->toContain('<script>'.YikesAssets::MARKER)
             ->and($content)->not->toContain('nonce');
     });
 });
@@ -51,7 +51,7 @@ describe('Vite nonce auto-detection', function (): void {
 
         $content = (string) $this->get('/host-page')->assertOk()->getContent();
 
-        expect($content)->toContain('<script nonce="vite-nonce-123">' . YikesAssets::MARKER)
+        expect($content)->toContain('<script nonce="vite-nonce-123">'.YikesAssets::MARKER)
             ->and($content)->toContain('<script type="module" nonce="vite-nonce-123" src="');
     });
 
@@ -61,7 +61,7 @@ describe('Vite nonce auto-detection', function (): void {
         $content = (string) $this->get('/yikes')->assertOk()->getContent();
 
         expect($content)->toContain('<style nonce="vite-nonce-123">html, body')
-            ->and($content)->toContain('<script nonce="vite-nonce-123">' . YikesAssets::MARKER)
+            ->and($content)->toContain('<script nonce="vite-nonce-123">'.YikesAssets::MARKER)
             ->and($content)->toContain('<script type="module" nonce="vite-nonce-123" src="');
     });
 });
@@ -73,7 +73,7 @@ describe('explicit resolver', function (): void {
 
         $content = (string) $this->get('/host-page')->assertOk()->getContent();
 
-        expect($content)->toContain('<script nonce="explicit-nonce-456">' . YikesAssets::MARKER)
+        expect($content)->toContain('<script nonce="explicit-nonce-456">'.YikesAssets::MARKER)
             ->and($content)->not->toContain('vite-nonce-123');
     });
 
@@ -82,7 +82,7 @@ describe('explicit resolver', function (): void {
 
         $content = (string) $this->get('/host-page')->assertOk()->getContent();
 
-        expect($content)->toContain('<script nonce="class-string-nonce">' . YikesAssets::MARKER);
+        expect($content)->toContain('<script nonce="class-string-nonce">'.YikesAssets::MARKER);
     });
 
     it('hard-disables auto-detection when the resolver returns null', function (): void {
@@ -91,7 +91,7 @@ describe('explicit resolver', function (): void {
 
         $content = (string) $this->get('/host-page')->assertOk()->getContent();
 
-        expect($content)->toContain('<script>' . YikesAssets::MARKER)
+        expect($content)->toContain('<script>'.YikesAssets::MARKER)
             ->and($content)->not->toContain('nonce');
     });
 

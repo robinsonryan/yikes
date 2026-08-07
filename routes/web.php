@@ -64,7 +64,7 @@ $reserved = array_map(
     fn (string $reservedSlug): string => preg_quote($reservedSlug, '/'),
     (array) config('yikes.checklists.reserved_slugs', []),
 );
-$testerSlug = $reserved === [] ? $slug : '(?!(?:' . implode('|', $reserved) . ')$)' . $slug;
+$testerSlug = $reserved === [] ? $slug : '(?!(?:'.implode('|', $reserved).')$)'.$slug;
 
 Route::middleware([...(array) config('yikes.checklists.middleware', ['web']), EnsureYikesEnabled::class])
     ->prefix((string) config('yikes.checklists.route_prefix', 'testing'))

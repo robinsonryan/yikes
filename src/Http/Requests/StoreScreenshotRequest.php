@@ -29,7 +29,7 @@ final class StoreScreenshotRequest extends FormRequest
                 'file',
                 'image',
                 'mimetypes:image/png,image/jpeg,image/webp',
-                'max:' . (int) config('yikes.max_screenshot_kb', 4096),
+                'max:'.(int) config('yikes.max_screenshot_kb', 4096),
             ],
         ];
     }

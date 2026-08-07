@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace RobinsonRyan\Yikes\Http\Requests;
 
-use RobinsonRyan\Yikes\Enums\StepStatus;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use RobinsonRyan\Yikes\Enums\StepStatus;
 
 final class RecordStepRequest extends FormRequest
 {

@@ -4,6 +4,12 @@ declare(strict_types=1);
 
 namespace RobinsonRyan\Yikes\Http\Controllers;
 
+use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use RobinsonRyan\Yikes\Data\Note;
 use RobinsonRyan\Yikes\Enums\NoteStatus;
 use RobinsonRyan\Yikes\Enums\NoteType;
@@ -13,14 +19,11 @@ use RobinsonRyan\Yikes\Http\Requests\UpdateNoteStatusRequest;
 use RobinsonRyan\Yikes\Support\Hub;
 use RobinsonRyan\Yikes\Support\NoteRepository;
 use RobinsonRyan\Yikes\Support\PushQueue;
-use Illuminate\Contracts\View\View;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
+use Throwable;
 
-final class NotesController
+final readonly class NotesController
 {
-    public function __construct(private readonly NoteRepository $notes) {}
+    public function __construct(private NoteRepository $notes) {}
 
     /**
      * Minimal notes index: list (newest first), filter by status. Serves the
@@ -45,7 +48,10 @@ final class NotesController
             return response()->json($props);
         }
 
-        return view('yikes::page', [
+        /** @var view-string $view */
+        $view = 'yikes::page';
+
+        return view($view, [
             'title' => 'Yikes',
             'component' => 'Index',
             'props' => $props,
@@ -73,8 +79,8 @@ final class NotesController
             type: NoteType::tryFrom((string) ($data['type'] ?? '')) ?? NoteType::Bug,
             context: $context,
             createdBy: [
-                'name' => (string) ($user?->name ?? 'Unknown'),
-                'email' => (string) ($user?->email ?? ''),
+                'name' => $this->userAttribute($user, 'name', 'Unknown'),
+                'email' => $this->userAttribute($user, 'email', ''),
             ],
             stateJson: config('yikes.capture_state', true) && is_string($state) ? $state : null,
             pendingScreenshotIds: $pendingIds,
@@ -89,7 +95,7 @@ final class NotesController
         if (Hub::enabled()) {
             try {
                 app(PushQueue::class)->flush();
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 Log::warning('yikes: push-on-capture failed; bundle stays queued.', [
                     'error' => $e->getMessage(),
                 ]);
@@ -123,7 +129,7 @@ final class NotesController
 
         abort_unless($updated instanceof Note, 404);
 
-        return response()->json(['message' => 'Note marked ' . $status->value . '.']);
+        return response()->json(['message' => 'Note marked '.$status->value.'.']);
     }
 
     public function destroy(string $note): JsonResponse
@@ -142,7 +148,7 @@ final class NotesController
 
         return response()->json(['message' => $count === 0
             ? 'No completed notes to clear.'
-            : 'Cleared ' . $count . ' completed ' . ($count === 1 ? 'note' : 'notes') . '.']);
+            : 'Cleared '.$count.' completed '.($count === 1 ? 'note' : 'notes').'.']);
     }
 
     /**
@@ -168,5 +174,25 @@ final class NotesController
     private function ownerId(Request $request): string
     {
         return (string) $request->user()?->getAuthIdentifier();
+    }
+
+    /**
+     * Read a display attribute off the acting user.
+     *
+     * The capture routes are deliberately guest-writable, so `$request->user()`
+     * really can be null here even though the static type says otherwise. And a
+     * consumer's user model is theirs, not ours — `name` and `email` are
+     * conventional, not guaranteed — so this goes through `getAttribute()`
+     * rather than a property the base class does not declare.
+     */
+    private function userAttribute(?Authenticatable $user, string $key, string $default): string
+    {
+        if (! $user instanceof Model) {
+            return $default;
+        }
+
+        $value = $user->getAttribute($key);
+
+        return is_string($value) && $value !== '' ? $value : $default;
     }
 }

@@ -2,19 +2,19 @@
 
 declare(strict_types=1);
 
-use RobinsonRyan\Yikes\Tests\ReservedSlugTestCase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use RobinsonRyan\Yikes\Tests\ReservedSlugTestCase;
 
 uses(ReservedSlugTestCase::class);
 
 beforeEach(function (): void {
-    $this->definitionsPath = sys_get_temp_dir() . '/yikes-reserved-defs-' . uniqid();
+    $this->definitionsPath = sys_get_temp_dir().'/yikes-reserved-defs-'.uniqid();
     mkdir($this->definitionsPath, 0755, true);
 
     // A tester whose slug collides with a reserved slug on purpose: the
     // route pattern must refuse the match even when the tester exists.
-    file_put_contents($this->definitionsPath . '/testers.yaml', <<<'YAML'
+    file_put_contents($this->definitionsPath.'/testers.yaml', <<<'YAML'
         testers:
           - slug: andrea
             name: Andrea Evans
@@ -30,7 +30,7 @@ beforeEach(function (): void {
 });
 
 afterEach(function (): void {
-    exec('rm -rf ' . escapeshellarg($this->definitionsPath));
+    exec('rm -rf '.escapeshellarg($this->definitionsPath));
 });
 
 describe('reserved checklist slugs', function (): void {

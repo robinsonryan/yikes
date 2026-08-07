@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace RobinsonRyan\Yikes\Support;
 
+use Carbon\CarbonImmutable;
+use InvalidArgumentException;
 use RobinsonRyan\Yikes\Data\Checklist;
 use RobinsonRyan\Yikes\Data\ChecklistTest;
 use RobinsonRyan\Yikes\Enums\StepStatus;
-use Carbon\CarbonImmutable;
-use InvalidArgumentException;
 use RuntimeException;
 
 /**
@@ -21,16 +21,16 @@ use RuntimeException;
  *     tests: { <test-slug>: { steps: { "<1-based-index>": {
  *       status: pass|fail, reason, note_id, recorded_at } } } } }
  */
-final class ChecklistResultStore
+final readonly class ChecklistResultStore
 {
-    private const string SLUG_PATTERN = '/^[a-z0-9][a-z0-9-]{0,63}$/D';
+    private const SLUG_PATTERN = '/^[a-z0-9][a-z0-9-]{0,63}$/D';
 
-    public function __construct(private readonly string $basePath) {}
+    public function __construct(private string $basePath) {}
 
     /**
      * Raw results for one tester + suite (empty structure when none yet).
      *
-     * @return array{tester: string, suite: string, updated_at: string|null, tests: array<string, array{steps: array<string, array<string, mixed>>}>}
+     * @return array{tester: string, suite: string, updated_at: string|null, tests: array<string, array{steps: array<array-key, array<string, mixed>>}>}
      */
     public function results(string $tester, string $suite): array
     {
@@ -130,7 +130,7 @@ final class ChecklistResultStore
     }
 
     /**
-     * @param  array<string, array<string, mixed>>  $steps
+     * @param  array<array-key, array<string, mixed>>  $steps
      * @return array{status: string, passed: int, failed: int, total: int}
      */
     private function summarizeTest(ChecklistTest $test, array $steps): array
@@ -166,7 +166,7 @@ final class ChecklistResultStore
     {
         $results['updated_at'] = CarbonImmutable::now()->toIso8601String();
 
-        $dir = $this->basePath . '/checklists/' . $tester;
+        $dir = $this->basePath.'/checklists/'.$tester;
 
         if (! is_dir($dir) && ! mkdir($dir, 0755, true) && ! is_dir($dir)) {
             throw new RuntimeException("Unable to create checklist results directory [{$dir}].");
@@ -174,13 +174,13 @@ final class ChecklistResultStore
 
         file_put_contents(
             $this->file($tester, $suite),
-            json_encode($results, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n",
+            json_encode($results, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n",
         );
     }
 
     private function file(string $tester, string $suite): string
     {
-        return $this->basePath . '/checklists/' . $tester . '/' . $suite . '.json';
+        return $this->basePath.'/checklists/'.$tester.'/'.$suite.'.json';
     }
 
     private function assertSlug(string $value): void

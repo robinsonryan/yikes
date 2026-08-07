@@ -43,7 +43,7 @@ final class InjectYikesAssets
             return $response;
         }
 
-        $snippet = YikesAssets::injectHtml($request);
+        $snippet = YikesAssets::injectHtml();
 
         $position = strripos($content, '</body>');
 
@@ -51,7 +51,7 @@ final class InjectYikesAssets
             return $response;
         }
 
-        $response->setContent(substr($content, 0, $position) . $snippet . substr($content, $position));
+        $response->setContent(substr($content, 0, $position).$snippet.substr($content, $position));
         $response->headers->remove('Content-Length');
 
         return $response;

@@ -92,7 +92,7 @@ describe('push on capture', function (): void {
 
         Http::assertSentInOrder([
             fn (Request $request): bool => $request->url() === 'https://hub.test/api/v1/notes',
-            fn (Request $request): bool => $request->url() === 'https://hub.test/api/v1/notes/' . $note->id . '/screenshots',
+            fn (Request $request): bool => $request->url() === 'https://hub.test/api/v1/notes/'.$note->id.'/screenshots',
         ]);
 
         Http::assertSent(function (Request $request) use ($note): bool {
@@ -116,7 +116,7 @@ describe('push on capture', function (): void {
         });
 
         Http::assertSent(function (Request $request) use ($note): bool {
-            if (! str_ends_with($request->url(), '/notes/' . $note->id . '/screenshots')) {
+            if (! str_ends_with($request->url(), '/notes/'.$note->id.'/screenshots')) {
                 return false;
             }
 
@@ -202,7 +202,7 @@ describe('yikes:flush', function (): void {
             ->assertSuccessful();
 
         expect(app(PushQueue::class)->isConflict($conflicted->id))->toBeTrue()
-            ->and(is_file(app(NoteRepository::class)->path('push/' . $conflicted->id . '.conflict')))->toBeTrue();
+            ->and(is_file(app(NoteRepository::class)->path('push/'.$conflicted->id.'.conflict')))->toBeTrue();
 
         // A later flush must not touch the conflicted bundle again.
         Http::fake();
@@ -287,9 +287,9 @@ describe('hub mode disables the local index UI', function (): void {
         $note = createStoredNote();
 
         $this->get('/yikes')->assertNotFound();
-        $this->patchJson('/yikes/notes/' . $note->id, ['body' => 'edited'])->assertNotFound();
-        $this->patchJson('/yikes/notes/' . $note->id . '/status', ['status' => 'approved'])->assertNotFound();
-        $this->deleteJson('/yikes/notes/' . $note->id)->assertNotFound();
+        $this->patchJson('/yikes/notes/'.$note->id, ['body' => 'edited'])->assertNotFound();
+        $this->patchJson('/yikes/notes/'.$note->id.'/status', ['status' => 'approved'])->assertNotFound();
+        $this->deleteJson('/yikes/notes/'.$note->id)->assertNotFound();
         $this->deleteJson('/yikes/notes/completed')->assertNotFound();
     });
 
@@ -309,7 +309,7 @@ describe('hub mode disables the local index UI', function (): void {
     it('advertises hub mode and the capped screenshot size to the island', function (): void {
         config()->set('yikes.max_screenshot_kb', 8192);
 
-        \Illuminate\Support\Facades\Route::middleware('web')->get('/hub-host-page', fn () => response(
+        Illuminate\Support\Facades\Route::middleware('web')->get('/hub-host-page', fn () => response(
             '<!DOCTYPE html><html><head><title>Host</title></head><body></body></html>',
         )->header('Content-Type', 'text/html; charset=utf-8'));
 

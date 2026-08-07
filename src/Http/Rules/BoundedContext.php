@@ -32,13 +32,13 @@ use Illuminate\Support\Str;
  */
 final class BoundedContext implements ValidationRule
 {
-    public const int MAX_KEYS = 40;
+    public const MAX_KEYS = 40;
 
-    public const int MAX_KEY_LENGTH = 64;
+    public const MAX_KEY_LENGTH = 64;
 
-    public const int MAX_ITEMS_PER_KEY = 40;
+    public const MAX_ITEMS_PER_KEY = 40;
 
-    public const int MAX_STRING_LENGTH = 2048;
+    public const MAX_STRING_LENGTH = 2048;
 
     /**
      * Shapes the package has always validated. Applied on top of the generic
@@ -47,7 +47,7 @@ final class BoundedContext implements ValidationRule
      *
      * @var array<string, list<string>>
      */
-    private const array KNOWN_KEY_RULES = [
+    private const KNOWN_KEY_RULES = [
         'url' => ['nullable', 'string', 'max:2048'],
         'route' => ['nullable', 'string', 'max:255'],
         'page' => ['nullable', 'string', 'max:255'],
@@ -73,7 +73,7 @@ final class BoundedContext implements ValidationRule
         }
 
         if (count($value) > self::MAX_KEYS) {
-            $fail('The :attribute field may not have more than ' . self::MAX_KEYS . ' keys.');
+            $fail('The :attribute field may not have more than '.self::MAX_KEYS.' keys.');
 
             return;
         }
@@ -86,7 +86,7 @@ final class BoundedContext implements ValidationRule
             }
 
             if (mb_strlen($key) > self::MAX_KEY_LENGTH) {
-                $fail('The :attribute field has a key longer than ' . self::MAX_KEY_LENGTH . ' characters.');
+                $fail('The :attribute field has a key longer than '.self::MAX_KEY_LENGTH.' characters.');
 
                 return;
             }
@@ -115,14 +115,14 @@ final class BoundedContext implements ValidationRule
         }
 
         if (count($item) > self::MAX_ITEMS_PER_KEY) {
-            $fail($this->itemMessage($key, 'may not have more than ' . self::MAX_ITEMS_PER_KEY . ' values'));
+            $fail($this->itemMessage($key, 'may not have more than '.self::MAX_ITEMS_PER_KEY.' values'));
 
             return false;
         }
 
         foreach ($item as $nestedKey => $nested) {
             if (is_string($nestedKey) && mb_strlen($nestedKey) > self::MAX_KEY_LENGTH) {
-                $fail($this->itemMessage($key, 'has a key longer than ' . self::MAX_KEY_LENGTH . ' characters'));
+                $fail($this->itemMessage($key, 'has a key longer than '.self::MAX_KEY_LENGTH.' characters'));
 
                 return false;
             }
@@ -144,7 +144,7 @@ final class BoundedContext implements ValidationRule
     private function validateScalar(string $key, mixed $item, Closure $fail): bool
     {
         if (is_string($item) && mb_strlen($item) > self::MAX_STRING_LENGTH) {
-            $fail($this->itemMessage($key, 'may not be longer than ' . self::MAX_STRING_LENGTH . ' characters'));
+            $fail($this->itemMessage($key, 'may not be longer than '.self::MAX_STRING_LENGTH.' characters'));
 
             return false;
         }
@@ -166,6 +166,6 @@ final class BoundedContext implements ValidationRule
 
     private function itemMessage(string $key, string $problem): string
     {
-        return 'The :attribute key [' . Str::limit($key, self::MAX_KEY_LENGTH) . '] ' . $problem . '.';
+        return 'The :attribute key ['.Str::limit($key, self::MAX_KEY_LENGTH).'] '.$problem.'.';
     }
 }

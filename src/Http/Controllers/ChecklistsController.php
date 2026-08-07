@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace RobinsonRyan\Yikes\Http\Controllers;
 
+use Illuminate\Contracts\View\View;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use RobinsonRyan\Yikes\Data\Checklist;
 use RobinsonRyan\Yikes\Data\ChecklistTest;
 use RobinsonRyan\Yikes\Data\Tester;
@@ -14,9 +17,6 @@ use RobinsonRyan\Yikes\Http\Requests\RecordStepRequest;
 use RobinsonRyan\Yikes\Support\ChecklistRepository;
 use RobinsonRyan\Yikes\Support\ChecklistResultStore;
 use RobinsonRyan\Yikes\Support\NoteRepository;
-use Illuminate\Contracts\View\View;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 
 /**
  * The tester-facing UAT checklist surface (`/testing/...`). Public within
@@ -24,12 +24,12 @@ use Illuminate\Http\Request;
  * credentials and walk suites step by step; a failed step spawns a yikes
  * note carrying the checklist context.
  */
-final class ChecklistsController
+final readonly class ChecklistsController
 {
     public function __construct(
-        private readonly ChecklistRepository $checklists,
-        private readonly ChecklistResultStore $results,
-        private readonly NoteRepository $notes,
+        private ChecklistRepository $checklists,
+        private ChecklistResultStore $results,
+        private NoteRepository $notes,
     ) {}
 
     /**
@@ -54,7 +54,7 @@ final class ChecklistsController
     {
         $testerData = $this->findTesterOrFail($tester);
 
-        return $this->page($request, 'testing/Tester', 'Checklists — ' . $testerData->name, [
+        return $this->page($request, 'testing/Tester', 'Checklists — '.$testerData->name, [
             'tester' => $this->presentTester($testerData),
             'roles' => $this->checklists->roles(),
             'roleReferenceUrl' => $this->checklists->roleReferenceUrl(),
@@ -79,7 +79,7 @@ final class ChecklistsController
 
         $summary = $this->results->summarize($checklist, $testerData->slug);
 
-        return $this->page($request, 'testing/Suite', $checklist->title . ' — ' . $testerData->name, [
+        return $this->page($request, 'testing/Suite', $checklist->title.' — '.$testerData->name, [
             'tester' => ['slug' => $testerData->slug, 'name' => $testerData->name],
             'suite' => $this->personalize($checklist->toArray(), $testerData),
             'summary' => $summary,
@@ -99,7 +99,7 @@ final class ChecklistsController
 
         $results = $this->results->results($testerData->slug, $checklist->slug);
 
-        return $this->page($request, 'testing/Test', $testData->title . ' — ' . $testerData->name, [
+        return $this->page($request, 'testing/Test', $testData->title.' — '.$testerData->name, [
             'tester' => ['slug' => $testerData->slug, 'name' => $testerData->name],
             'suite' => ['slug' => $checklist->slug, 'title' => $checklist->title],
             'test' => $this->personalize($testData->toArray(), $testerData),
@@ -137,8 +137,8 @@ final class ChecklistsController
         $this->results->recordStep($testerData->slug, $checklist->slug, $testData->slug, $step, $status, $reason, $noteId);
 
         return response()->json(['message' => $status === StepStatus::Pass
-            ? 'Step ' . $step . ' passed.'
-            : 'Step ' . $step . ' failed — a yikes note was filed.']);
+            ? 'Step '.$step.' passed.'
+            : 'Step '.$step.' failed — a yikes note was filed.']);
     }
 
     /**
@@ -168,7 +168,10 @@ final class ChecklistsController
             return response()->json($props);
         }
 
-        return view('yikes::page', [
+        /** @var view-string $view */
+        $view = 'yikes::page';
+
+        return view($view, [
             'title' => $title,
             'component' => $component,
             'props' => $props,
@@ -185,8 +188,8 @@ final class ChecklistsController
         $stepText = $test->steps[$step - 1] ?? '';
 
         $note = $this->notes->create(
-            body: $reason . "\n\n> Step " . $step . ' of ' . count($test->steps) . ": {$stepText}",
-            title: 'UAT fail: ' . $checklist->title . ' / ' . $test->title . ' — step ' . $step,
+            body: $reason."\n\n> Step ".$step.' of '.count($test->steps).": {$stepText}",
+            title: 'UAT fail: '.$checklist->title.' / '.$test->title.' — step '.$step,
             type: NoteType::Bug,
             context: [
                 'checklist' => [
@@ -237,10 +240,8 @@ final class ChecklistsController
      * "{first}.admin@testaccount.example" → "andrea.admin@testaccount.example").
      * Walks arrays recursively; leaves keys and non-strings untouched.
      *
-     * @template T of array<array-key, mixed>|string|null
-     *
-     * @param  T  $value
-     * @return T
+     * @param  array<array-key, mixed>|string|null  $value
+     * @return array<array-key, mixed>|string|null
      */
     private function personalize(array|string|null $value, Tester $tester): array|string|null
     {

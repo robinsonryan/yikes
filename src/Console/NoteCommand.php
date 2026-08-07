@@ -10,6 +10,7 @@ use RobinsonRyan\Yikes\Enums\NoteType;
 use RobinsonRyan\Yikes\Support\Hub;
 use RobinsonRyan\Yikes\Support\NoteRepository;
 use RobinsonRyan\Yikes\Support\PushQueue;
+use Throwable;
 
 /**
  * CLI capture for coding agents: file a yikes note without the browser
@@ -37,12 +38,12 @@ final class NoteCommand extends Command
             return self::FAILURE;
         }
 
-        $type = NoteType::tryFrom((string) $this->option('type'));
+        $type = NoteType::tryFrom($this->stringOption('type'));
 
         if ($type === null) {
             $this->error(sprintf(
                 'Unknown type "%s". Valid types: %s.',
-                (string) $this->option('type'),
+                $this->stringOption('type'),
                 implode(', ', NoteType::values()),
             ));
 
@@ -69,11 +70,11 @@ final class NoteCommand extends Command
         $title = $this->option('title');
 
         $note = $notes->create(
-            body: (string) $this->argument('body'),
+            body: $this->stringArgument('body'),
             title: is_string($title) && $title !== '' ? $title : null,
             type: $type,
             context: $context,
-            createdBy: ['name' => (string) $this->option('by'), 'email' => ''],
+            createdBy: ['name' => $this->stringOption('by'), 'email' => ''],
             stateJson: null,
         );
 
@@ -87,7 +88,7 @@ final class NoteCommand extends Command
                 $result = $this->laravel->make(PushQueue::class)->flush();
 
                 $this->info(sprintf('Pushed %d, still queued %d.', $result['pushed'], $result['queued']));
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 Log::warning('yikes: push-on-capture failed; bundle stays queued.', [
                     'error' => $e->getMessage(),
                 ]);
@@ -96,5 +97,24 @@ final class NoteCommand extends Command
         }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Console input is `array|bool|string|null`; every option this command reads
+     * is a single value. Narrow rather than cast — casting an array to string is
+     * a fatal, and `--type` with no value hands back a bool.
+     */
+    private function stringOption(string $key): string
+    {
+        $value = $this->option($key);
+
+        return is_string($value) ? $value : '';
+    }
+
+    private function stringArgument(string $key): string
+    {
+        $value = $this->argument($key);
+
+        return is_string($value) ? $value : '';
     }
 }

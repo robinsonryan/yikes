@@ -24,11 +24,11 @@ use RobinsonRyan\Yikes\Enums\PushOutcome;
  * user-visible content, and replaying a half-pushed bundle is safe because
  * the hub is idempotent on note id and (note id, position).
  */
-final class PushQueue
+final readonly class PushQueue
 {
     public function __construct(
-        private readonly NoteRepository $notes,
-        private readonly HubClient $client,
+        private NoteRepository $notes,
+        private HubClient $client,
     ) {}
 
     /**
@@ -98,13 +98,15 @@ final class PushQueue
      */
     public function queued(): array
     {
-        return $this->notes->all()
-            ->filter(fn (Note $note): bool => in_array($note->status, [NoteStatus::New, NoteStatus::Approved], true)
-                && ! $this->isPushed($note->id)
-                && ! $this->isConflict($note->id))
-            ->reverse()
-            ->values()
-            ->all();
+        return array_values(
+            $this->notes->all()
+                ->filter(fn (Note $note): bool => in_array($note->status, [NoteStatus::New, NoteStatus::Approved], true)
+                    && ! $this->isPushed($note->id)
+                    && ! $this->isConflict($note->id))
+                ->reverse()
+                ->values()
+                ->all(),
+        );
     }
 
     public function isPushed(string $id): bool
@@ -183,12 +185,12 @@ final class PushQueue
         }
 
         file_put_contents($path, json_encode([
-            $kind . '_at' => CarbonImmutable::now()->toIso8601String(),
-        ]) . "\n");
+            $kind.'_at' => CarbonImmutable::now()->toIso8601String(),
+        ])."\n");
     }
 
     private function markerPath(string $id, string $kind): string
     {
-        return $this->notes->path('push/' . strtolower($id) . '.' . $kind);
+        return $this->notes->path('push/'.strtolower($id).'.'.$kind);
     }
 }
