@@ -60,8 +60,7 @@ function roleFor(credential: TesterCredential): RoleInfo | null {
             </p>
             <YMessage v-if="sharedPassword" severity="info" class="mt-3">
                 The password for all users is
-                <code class="font-mono font-semibold">{{ sharedPassword }}</code
-                >.
+                <code class="font-mono font-semibold">{{ sharedPassword }}</code>.
             </YMessage>
             <div
                 class="mt-3 overflow-x-auto rounded-md border border-surface-200 bg-surface-0 shadow-sm dark:border-surface-700 dark:bg-surface-800"

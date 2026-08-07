@@ -45,7 +45,7 @@ onBeforeUnmount(() => document.removeEventListener("keydown", onKeydown));
 
 <template>
     <div v-if="visible" class="fixed inset-0 z-[999990] flex items-stretch justify-center sm:items-center sm:p-4">
-        <div class="absolute inset-0 bg-black/40" aria-hidden="true" @click="close"></div>
+        <div class="absolute inset-0 bg-black/40" aria-hidden="true" @click="close" />
         <div
             role="dialog"
             aria-modal="true"

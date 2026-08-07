@@ -14,3 +14,5 @@ composer.lock
 
 .phpstan.cache/
 .pint.cache
+
+.eslintcache

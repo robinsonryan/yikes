@@ -317,7 +317,7 @@ function contextLine(note: YikesNote): string {
                                 :src="shot.url"
                                 alt="Note screenshot"
                                 class="h-16 w-24 rounded-sm border border-surface-200 bg-surface-100 object-cover object-top dark:border-surface-700 dark:bg-surface-900"
-                            />
+                            >
                         </a>
                     </div>
 
@@ -422,8 +422,7 @@ function contextLine(note: YikesNote): string {
             <div class="space-y-4">
                 <p class="text-sm text-surface-700 dark:text-surface-300">
                     Delete
-                    <span class="font-semibold">{{ deleting?.title || typeLabels[deleting?.type ?? "bug"] }}</span
-                    >? Its context, state snapshot, and screenshots are removed too.
+                    <span class="font-semibold">{{ deleting?.title || typeLabels[deleting?.type ?? "bug"] }}</span>? Its context, state snapshot, and screenshots are removed too.
                 </p>
 
                 <div class="flex justify-end gap-2 pt-2">

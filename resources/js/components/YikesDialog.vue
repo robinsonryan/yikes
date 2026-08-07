@@ -106,6 +106,10 @@ async function deletePending(id: string): Promise<void> {
     try {
         await api.delete(pendingUrl(id));
         remove(id);
+        // `included` is a reactive flag map keyed by pending-screenshot id.
+        // `delete` is the correct Vue idiom for dropping a reactive key; the
+        // rule's suggested Map rewrite would buy nothing here.
+        // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
         delete included[id];
     } catch {
         toast({
@@ -137,6 +141,10 @@ function submit(fastTrack = false): void {
             onSuccess: () => {
                 removeMany(attached);
                 for (const id of attached) {
+                    // `included` is a reactive flag map keyed by pending-screenshot id.
+                    // `delete` is the correct Vue idiom for dropping a reactive key; the
+                    // rule's suggested Map rewrite would buy nothing here.
+                    // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
                     delete included[id];
                 }
                 form.reset();
@@ -232,7 +240,7 @@ function submit(fastTrack = false): void {
                                 :src="pendingUrl(id)"
                                 alt="Pending screenshot"
                                 class="h-16 w-full rounded-sm bg-surface-100 object-cover object-top dark:bg-surface-900"
-                            />
+                            >
                         </a>
                         <div class="mt-1.5 flex items-center justify-between">
                             <YCheckbox v-model="included[id]" :input-id="`yikes-include-${id}`" aria-label="Include screenshot" />

@@ -108,7 +108,7 @@ async function resetTest(): Promise<void> {
                     v-if="test.goal"
                     class="mt-1 text-sm text-surface-600 dark:text-surface-400"
                     v-html="checklistTextHtml(test.goal)"
-                ></p>
+                />
             </div>
             <YButton v-if="hasRecords" variant="secondary" label="Reset test" size="sm" @click="resetTest" />
         </div>
@@ -148,7 +148,7 @@ async function resetTest(): Promise<void> {
                             <template v-else>{{ index + 1 }}</template>
                         </span>
                         <div class="min-w-0">
-                            <p class="text-sm text-surface-800 dark:text-surface-200" v-html="checklistTextHtml(step)"></p>
+                            <p class="text-sm text-surface-800 dark:text-surface-200" v-html="checklistTextHtml(step)" />
                             <p
                                 v-if="results[String(index + 1)]?.status === 'fail' && results[String(index + 1)]?.reason"
                                 class="mt-1 text-sm text-danger-600 dark:text-danger-400"

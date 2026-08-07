@@ -35,7 +35,7 @@ defineProps<{
                     v-if="suite.description"
                     class="mt-1 text-sm text-surface-600 dark:text-surface-400"
                     v-html="checklistTextHtml(suite.description)"
-                ></p>
+                />
             </div>
             <ChecklistStatusTag :status="summary.status" class="mt-2" />
         </div>

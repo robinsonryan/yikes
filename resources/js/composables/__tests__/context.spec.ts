@@ -8,6 +8,22 @@ import {
     STATE_TRUNCATION_MARKER,
 } from "../../context";
 
+/**
+ * The island installs `window.Yikes` in its bootstrap; these specs drive it
+ * through that public surface. Narrow once here rather than asserting non-null
+ * at every call site — if setup ever stops installing it, the failure names the
+ * cause instead of surfacing as a bare TypeError.
+ */
+function yikesApi(): NonNullable<typeof window.Yikes> {
+    const api = window.Yikes;
+
+    if (!api) {
+        throw new Error("window.Yikes is not installed — check the spec's setup.");
+    }
+
+    return api;
+}
+
 describe("yikes context capture", () => {
     beforeEach(() => {
         window.__YIKES__ = {
@@ -35,7 +51,7 @@ describe("yikes context capture", () => {
     });
 
     it("merges registered context providers over the core context", () => {
-        window.Yikes!.registerContextProvider(() => ({
+        yikesApi().registerContextProvider(() => ({
             page: "billing/Index",
             account: { id: "1", name: "Acme" },
         }));
@@ -48,10 +64,10 @@ describe("yikes context capture", () => {
     });
 
     it("ignores throwing providers", () => {
-        window.Yikes!.registerContextProvider(() => {
+        yikesApi().registerContextProvider(() => {
             throw new Error("boom");
         });
-        window.Yikes!.registerContextProvider(() => ({ page: "still-works" }));
+        yikesApi().registerContextProvider(() => ({ page: "still-works" }));
 
         expect(captureContext().page).toBe("still-works");
     });
@@ -72,20 +88,25 @@ describe("yikes context capture", () => {
     });
 
     it("serializes the first non-null state provider", () => {
-        window.Yikes!.registerStateProvider(() => null);
-        window.Yikes!.registerStateProvider(() => ({ cart: { items: 2 } }));
+        yikesApi().registerStateProvider(() => null);
+        yikesApi().registerStateProvider(() => ({ cart: { items: 2 } }));
 
         expect(captureState()).toBe('{"cart":{"items":2}}');
     });
 
     it("caps oversized state with the truncation marker", () => {
-        window.Yikes!.registerStateProvider(() => ({ blob: "x".repeat(MAX_STATE_BYTES + 100) }));
+        yikesApi().registerStateProvider(() => ({ blob: "x".repeat(MAX_STATE_BYTES + 100) }));
 
         const state = captureState();
 
         expect(state).not.toBeNull();
-        expect(state!.endsWith(STATE_TRUNCATION_MARKER)).toBe(true);
-        expect(state!.length).toBeLessThanOrEqual(MAX_STATE_BYTES + STATE_TRUNCATION_MARKER.length);
+
+        if (state === null) {
+            throw new Error("captureState() returned null after a state provider was registered.");
+        }
+
+        expect(state.endsWith(STATE_TRUNCATION_MARKER)).toBe(true);
+        expect(state.length).toBeLessThanOrEqual(MAX_STATE_BYTES + STATE_TRUNCATION_MARKER.length);
     });
 
     it("safeStringify survives circular references and functions", () => {

@@ -15,8 +15,23 @@ import YikesDialog from "./YikesDialog.vue";
  * The floating pill: drag grip, open-index, element pick, screenshot snap,
  * and note capture. Mounted once per page by the island entry.
  */
-const shadowHost = inject<HTMLElement>("yikes:shadowHost")!;
-const overlayHost = inject<HTMLElement>("yikes:container")!;
+/**
+ * The island entry provides both hosts before mounting the FAB. Fail loudly if
+ * that contract is ever broken — a missing host otherwise surfaces much later
+ * as an unexplained null deref inside a teleport or a drag handler.
+ */
+function requireHost(key: string): HTMLElement {
+    const host = inject<HTMLElement>(key);
+
+    if (!host) {
+        throw new Error(`yikes: "${key}" was not provided by the island entry.`);
+    }
+
+    return host;
+}
+
+const shadowHost = requireHost("yikes:shadowHost");
+const overlayHost = requireHost("yikes:container");
 
 const { add: toast } = useYikesToast();
 const { pendingIds, add } = usePendingScreenshots();
