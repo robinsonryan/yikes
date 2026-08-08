@@ -7,10 +7,17 @@ xdebug_enabled: false
 additional_hostnames: []
 additional_fqdns: []
 database:
-    type: mariadb
-    version: "10.11"
+    type: postgres
+    version: "18"
 use_dns_when_possible: true
 composer_version: "2"
 disable_settings_management: true
 web_environment: []
 corepack_enable: false
+
+# Create the Postgres testing database on container start. The package has no
+# schema, but Testbench needs a real connection to boot — doctrine requires it
+# be Postgres at the pin, never an inherited SQLite default.
+hooks:
+    post-start:
+        - exec: /var/www/html/.ddev/commands/web/create-testing-db

@@ -7,6 +7,18 @@ Behavior changes land here in the commit that makes them, not at tag time.
 
 ## [Unreleased]
 
+### Changed
+
+- **Development and test database is now Postgres 18, never MariaDB or SQLite.**
+  Internal — no consumer-facing behavior changes, and the package still has no
+  database of its own (notes remain flat files). The DDEV `db` container was
+  MariaDB 10.11 and the Testbench connection was in-memory SQLite; both were
+  inherited tool defaults nobody chose, and both advertised a database this
+  package does not have. DDEV now provisions Postgres 18 with a `testing`
+  database created on start, and `tests/TestCase.php` binds `pgsql`. Contributors
+  need `ddev restart` once; a fresh clone needs nothing. Verified by
+  `harness db-check` and guarded by `tests/Unit/TestDatabaseEngineTest.php`.
+
 ## [0.7.0] - 2026-08-08
 
 ### Changed

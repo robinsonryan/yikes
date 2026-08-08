@@ -232,7 +232,8 @@ skill when it flips status to `done`.
 
 - Backend: `vendor/bin/pint --dirty --format agent`, `vendor/bin/phpstan` (larastan L8 — check whether
   `phpstan.neon` scans `packages/`; follow the invoicing precedent), package pest suite, app pest suite
-  (uses Testbench sqlite / pgsql_testing respectively).
+  (both on Postgres at the pinned major — the package's Testbench connection is `pgsql` against a
+  `testing` database, not SQLite).
 - Frontend: `npm run lint`, `npm run format:check`, `npm run typecheck`, `npm run test:run`, `npm run build:check`.
 - Do NOT run `ddev quality`/`ddev pest` bare (they'd hit the main checkout).
 

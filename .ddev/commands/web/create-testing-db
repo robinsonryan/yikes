@@ -1,0 +1,17 @@
+#!/bin/bash
+
+## Description: Create PostgreSQL testing database
+## Usage: create-testing-db
+## Example: ddev create-testing-db
+
+# The package has no schema of its own — Testbench still needs a real
+# connection to boot the framework, and doctrine requires that connection be
+# Postgres at the pin rather than an inherited SQLite default.
+# See: core/universal/imports/data-persistence.md
+
+echo "Creating PostgreSQL testing database..."
+
+PGPASSWORD=db psql -h db -U db -d postgres -c "CREATE DATABASE testing;" 2>/dev/null || true
+PGPASSWORD=db psql -h db -U db -d postgres -c "GRANT ALL PRIVILEGES ON DATABASE testing TO db;" 2>/dev/null || true
+
+echo "Testing database created successfully!"

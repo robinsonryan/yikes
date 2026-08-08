@@ -197,9 +197,21 @@ the code is right. Never move it back, and keep `env()` calls confined to this f
 ## Testing
 
 Pest + Orchestra Testbench. **This package has no database** — no Eloquent, no
-migrations, flat files only — so `tests/TestCase.php` binds an in-memory SQLite
-connection purely to satisfy the framework, and points `yikes.path` at a per-test
-temp directory. Do not reach for the Postgres setup other first-party packages use.
+migrations, flat files only. `tests/TestCase.php` still binds a real connection,
+because the framework needs one to boot, and points `yikes.path` at a per-test
+temp directory.
+
+That connection is **Postgres at the pinned major, never SQLite**. There is no
+"SQLite is fine for tests" tier in the fleet doctrine, and Testbench's in-memory
+SQLite is an inherited tool default rather than a choice — this package is the
+worked example in `.claude/imports/data-persistence.md`. The DDEV `db` container
+is Postgres 18 and a `testing` database is created on start
+[T: .ddev/commands/web/create-testing-db]. `tests/Unit/TestDatabaseEngineTest.php`
+asserts the driver, the live server major, and that `uuidv7()` works, so an
+unexercised connection cannot quietly rot back to SQLite. Verify with
+`harness db-check` [T: core/bin/db-check].
+
+Nothing in the suite reads or writes a table; do not add a schema here.
 
 ```bash
 ddev composer test

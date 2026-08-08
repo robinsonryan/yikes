@@ -31,11 +31,23 @@ abstract class TestCase extends Orchestra
         $app['config']->set('yikes.path', $this->yikesPath);
         // The feature suite exercises the full `web` group (encrypted cookies).
         $app['config']->set('app.key', 'base64:'.base64_encode(str_repeat('a', 32)));
+        // This package stores nothing in a database — notes are flat files. The
+        // connection exists only so the framework can boot. It is still real
+        // Postgres at the pinned major: doctrine has no "SQLite is fine for
+        // tests" tier, and an inherited default is a bug, not a choice.
+        // See: .claude/imports/data-persistence.md
         $app['config']->set('database.default', 'testing');
         $app['config']->set('database.connections.testing', [
-            'driver' => 'sqlite',
-            'database' => ':memory:',
+            'driver' => 'pgsql',
+            'host' => env('DB_HOST', 'db'),
+            'port' => (int) env('DB_PORT', '5432'),
+            'database' => env('DB_DATABASE', 'testing'),
+            'username' => env('DB_USERNAME', 'db'),
+            'password' => env('DB_PASSWORD', 'db'),
+            'charset' => 'utf8',
             'prefix' => '',
+            'search_path' => 'public',
+            'sslmode' => 'prefer',
         ]);
     }
 
