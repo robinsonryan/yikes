@@ -7,6 +7,8 @@ Behavior changes land here in the commit that makes them, not at tag time.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-08-08
+
 ### Changed
 
 - **`YikesAssets::injectHtml()` no longer takes a `Request`.** The parameter was
