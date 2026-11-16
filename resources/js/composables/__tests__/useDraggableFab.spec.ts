@@ -1,34 +1,32 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { defineComponent, h, ref, type Ref } from "vue";
+import { defineComponent, h, ref } from "vue";
 import { mount } from "@vue/test-utils";
 import { useDraggableFab } from "../useDraggableFab";
 
 const STORAGE_KEY = "yikes.fab.position";
 
-type Harness = ReturnType<typeof useDraggableFab> & { el: Ref<HTMLElement | null> };
-
-function mountHarness(): Harness {
-    let exposed: Harness | null = null;
+/** The drag behaviour itself is specified in the capture kit; this covers the Vue wiring. */
+function mountHarness() {
+    let exposed: ReturnType<typeof useDraggableFab> | null = null;
 
     const Comp = defineComponent({
         setup() {
             const el = ref<HTMLElement | null>(null);
-            exposed = { ...useDraggableFab(el), el };
+            exposed = useDraggableFab(el);
             return () => h("div", { ref: el });
         },
     });
 
-    mount(Comp, { attachTo: document.body });
+    const wrapper = mount(Comp, { attachTo: document.body });
     if (!exposed) {
         throw new Error("harness setup did not run");
     }
-    return exposed;
+    return { fab: exposed as ReturnType<typeof useDraggableFab>, wrapper, pill: wrapper.element as HTMLElement };
 }
 
-function pointerEvent(type: string, x: number, y: number): Event {
-    // jsdom has no PointerEvent constructor; MouseEvent carries the same
-    // clientX/clientY the composable reads.
-    return new MouseEvent(type, { clientX: x, clientY: y, bubbles: true });
+function pointerEvent(type: string, x: number, y: number): PointerEvent {
+    // happy-dom's MouseEvent carries the same clientX/clientY the kit reads.
+    return new MouseEvent(type, { clientX: x, clientY: y, bubbles: true }) as PointerEvent;
 }
 
 describe("useDraggableFab", () => {
@@ -39,55 +37,58 @@ describe("useDraggableFab", () => {
     });
 
     it("keeps the CSS default position until dragged", () => {
-        const fab = mountHarness();
-        expect(fab.style.value).toEqual({});
-        expect(fab.position.value).toBeNull();
+        const { pill } = mountHarness();
+
+        expect(pill.style.left).toBe("");
+        expect(pill.style.top).toBe("");
     });
 
-    it("follows the pointer during a drag and persists the drop point", () => {
-        const fab = mountHarness();
+    it("moves the pill from the grip and remembers it under the yikes key", () => {
+        const { fab, pill } = mountHarness();
 
-        fab.onHandlePointerDown(pointerEvent("pointerdown", 100, 100) as PointerEvent);
+        fab.onHandlePointerDown(pointerEvent("pointerdown", 100, 100));
         window.dispatchEvent(pointerEvent("pointermove", 150, 220));
-
-        // The jsdom element rect is at 0,0 — the pointer offset is 100,100.
-        expect(fab.position.value).toEqual({ x: 50, y: 120 });
-        expect(fab.style.value.left).toBe("50px");
-        expect(fab.style.value.right).toBe("auto");
-
         window.dispatchEvent(pointerEvent("pointerup", 150, 220));
-        expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "null")).toEqual({ x: 50, y: 120 });
 
-        // Listeners are removed after the drag ends.
-        window.dispatchEvent(pointerEvent("pointermove", 400, 400));
-        expect(fab.position.value).toEqual({ x: 50, y: 120 });
+        expect(pill.style.left).toBe("50px");
+        expect(pill.style.top).toBe("120px");
+        expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "null")).toEqual({ x: 50, y: 120 });
     });
 
-    it("clamps the position inside the viewport", () => {
-        const fab = mountHarness();
+    it("clamps the pill inside the viewport", () => {
+        const { fab, pill } = mountHarness();
 
-        fab.onHandlePointerDown(pointerEvent("pointerdown", 0, 0) as PointerEvent);
+        fab.onHandlePointerDown(pointerEvent("pointerdown", 0, 0));
         window.dispatchEvent(pointerEvent("pointermove", -500, 9999));
         window.dispatchEvent(pointerEvent("pointerup", -500, 9999));
 
-        expect(fab.position.value?.x).toBeGreaterThanOrEqual(8);
-        expect(fab.position.value?.y).toBeLessThanOrEqual(600 - 8);
+        expect(pill.style.left).toBe("8px");
+        expect(pill.style.top).toBe(`${600 - 8}px`);
     });
 
     it("restores a persisted position on mount", () => {
         localStorage.setItem(STORAGE_KEY, JSON.stringify({ x: 40, y: 60 }));
 
-        const fab = mountHarness();
+        const { pill } = mountHarness();
 
-        expect(fab.position.value).toEqual({ x: 40, y: 60 });
-        expect(fab.style.value.top).toBe("60px");
+        expect(pill.style.top).toBe("60px");
     });
 
     it("ignores a corrupt persisted value", () => {
         localStorage.setItem(STORAGE_KEY, "not json{");
 
-        const fab = mountHarness();
+        const { pill } = mountHarness();
 
-        expect(fab.position.value).toBeNull();
+        expect(pill.style.left).toBe("");
+    });
+
+    it("stops dragging once unmounted", () => {
+        const { fab, pill, wrapper } = mountHarness();
+
+        fab.onHandlePointerDown(pointerEvent("pointerdown", 0, 0));
+        wrapper.unmount();
+        window.dispatchEvent(pointerEvent("pointermove", 300, 300));
+
+        expect(pill.style.left).toBe("");
     });
 });

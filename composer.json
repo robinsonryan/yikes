@@ -27,7 +27,8 @@
         "laravel/pint": "^1.18",
         "orchestra/testbench": "^10.0|^11.0",
         "pestphp/pest": "^4.0|^5.0",
-        "rector/rector": "^2.0"
+        "rector/rector": "^2.0",
+        "robinsonryan/capture": "dev-main"
     },
     "extra": {
         "laravel": {
@@ -57,5 +58,15 @@
             "@refactor:check",
             "@test"
         ]
-    }
+    },
+    "repositories": [
+        {
+            "name": "capture",
+            "type": "path",
+            "url": "../capture",
+            "options": {
+                "symlink": false
+            }
+        }
+    ]
 }

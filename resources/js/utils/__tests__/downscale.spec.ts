@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fitUnderCap, type Rasterize } from "../downscale";
+import { fitUnderCap, type Rasterize } from "@robinsonryan/capture";
 
 function pngBlob(bytes: number): Blob {
     return new Blob([new Uint8Array(bytes)], { type: "image/png" });

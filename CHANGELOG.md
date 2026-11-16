@@ -7,6 +7,21 @@ Behavior changes land here in the commit that makes them, not at tag time.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Picking an element on Android no longer opens Chrome's Touch to Search.**
+  While picking, one transparent overlay now covers the page, so a tap lands on
+  the overlay instead of on page text, and the page's own click handlers never
+  see the tap. Everything else about picking is unchanged: one element, the same
+  highlight and hint, Escape cancels.
+
+### Changed
+
+- The pill's drag, the element picker, screenshot capture and the screenshot
+  size cap now come from the shared capture kit, `robinsonryan/capture`, a new
+  composer dev dependency bundled into `dist/` at build time. Internal — no
+  consumer-facing change; consumers still never run npm.
+
 ### Changed
 
 - **Development and test database is now Postgres 18, never MariaDB or SQLite.**
