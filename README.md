@@ -254,8 +254,9 @@ are batched into one coherent change.
 
 - PHP tests: `composer install && vendor/bin/pest` (Testbench; the repo has a DDEV project —
   `ddev start`, then `ddev exec vendor/bin/pest`).
-- Island UI: `npm install && npm run build` (Vite → `dist/`, committed), `npm run test:run`
-  (Vitest), `npm run typecheck`.
+- Island UI: `composer install && npm install && npm run build` (Vite → `dist/`, committed),
+  `npm run test:run` (Vitest), `npm run typecheck`. Composer comes first: npm links the capture
+  kit from `vendor/robinsonryan/capture`.
 - The prebuilt `dist/` is committed on purpose: composer consumers never run npm.
 
 ## Non-goals (v1)
