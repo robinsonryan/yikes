@@ -7,6 +7,8 @@ Behavior changes land here in the commit that makes them, not at tag time.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-17
+
 ### Fixed
 
 - **Picking an element on Android no longer opens Chrome's Touch to Search.**
