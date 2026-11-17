@@ -13,6 +13,7 @@
     },
     "devDependencies": {
         "@eslint/js": "^10.0.1",
+        "@robinsonryan/capture": "file:vendor/robinsonryan/capture",
         "@tailwindcss/vite": "^4.1.0",
         "@vitejs/plugin-vue": "^6.0.0",
         "@vue/test-utils": "^2.4.6",

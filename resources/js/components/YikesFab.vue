@@ -2,8 +2,7 @@
 import { inject, nextTick, ref } from "vue";
 import { api, noteUrl } from "../api";
 import { bootstrap } from "../bootstrap";
-import { pickElement } from "../composables/useElementPicker";
-import { fitUnderCap } from "../utils/downscale";
+import { capture, fitUnderCap, pick } from "@robinsonryan/capture";
 import { useDraggableFab } from "../composables/useDraggableFab";
 import { usePendingScreenshots } from "../composables/usePendingScreenshots";
 import type { YikesElementContext } from "../types";
@@ -49,7 +48,7 @@ const pickedElement = ref<YikesElementContext | null>(null);
 // out of the way (grip handle only; the action buttons stay taps). Position
 // persists across pages/sessions.
 const fabEl = ref<HTMLElement | null>(null);
-const { style: fabStyle, onHandlePointerDown } = useDraggableFab(fabEl);
+const { onHandlePointerDown } = useDraggableFab(fabEl);
 
 async function uploadScreenshot(blob: Blob): Promise<void> {
     // Full-page PNGs can blow past the upload cap (the hub hard-rejects
@@ -72,13 +71,9 @@ async function snapScreenshot(): Promise<void> {
     await nextTick();
 
     try {
-        // Dynamic import so the capture library is code-split out of the
-        // main bundle and only loads on first snap.
-        const { snapdom } = await import("@zumer/snapdom");
-        const capture = await snapdom(document.body);
-        const blob = await capture.toBlob({ type: "png" });
-
-        await uploadScreenshot(blob);
+        // The kit imports snapdom dynamically, so the capture library is
+        // code-split out of the main bundle and only loads on first snap.
+        await uploadScreenshot(await capture({ mode: "full" }));
 
         toast({
             severity: "success",
@@ -104,20 +99,23 @@ async function startElementPick(): Promise<void> {
     isPicking.value = true;
 
     try {
-        const picked = await pickElement(overlayHost, shadowHost);
+        const [picked] = await pick({
+            max: 1,
+            exclude: [shadowHost],
+            overlayHost,
+            hint: "Click an element to attach your note to it — Esc to cancel",
+        });
 
         if (!picked) {
             return;
         }
 
-        pickedElement.value = picked.context;
+        pickedElement.value = { selector: picked.selector, tag: picked.tag, text: picked.text };
 
         // Best-effort element screenshot — the note is still filed if the
         // capture fails (e.g. cross-origin images inside the element).
         try {
-            const { snapdom } = await import("@zumer/snapdom");
-            const capture = await snapdom(picked.element);
-            await uploadScreenshot(await capture.toBlob({ type: "png" }));
+            await uploadScreenshot(await capture({ mode: "element", element: picked.element }));
         } catch {
             // Ignore — selector + text still identify the element.
         }
@@ -142,7 +140,6 @@ function openNoteDialog(): void {
         <div
             ref="fabEl"
             v-show="!isCapturing && !isPicking && !showDialog"
-            :style="fabStyle"
             class="fixed right-4 bottom-4 z-[999900] flex flex-col items-center gap-1.5 rounded-full border border-surface-200 bg-surface-0/90 p-1.5 shadow-lg backdrop-blur-sm dark:border-surface-700 dark:bg-surface-800/90 print:hidden"
         >
             <button

@@ -129,7 +129,7 @@ final readonly class NoteRepository
             })
             ->filter(fn (?Note $note): bool => $note instanceof Note
                 && (! $status instanceof NoteStatus || $note->status === $status))
-            ->sortByDesc(fn (Note $note) => $note->createdAt->getTimestamp())
+            ->sortByDesc(fn (Note $note): int => $note->createdAt->getTimestamp())
             ->values();
     }
 
